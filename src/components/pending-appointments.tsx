@@ -42,7 +42,7 @@ function PendingAppointmentCard({
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
   const checkForConflict = (staffId: string, date: string, time: string, duration: number): boolean => {
-    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
+    const newAppointmentStart = new Date(`${date}T${time}:00`).getTime();
     const newAppointmentEnd = newAppointmentStart + duration * 60 * 1000;
 
     return confirmedAppointments.some(existing => {
@@ -51,8 +51,7 @@ function PendingAppointmentCard({
       }
       const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
       const existingEnd = existingStart + existing.duration * 60 * 1000;
-
-      // Check for overlap
+      
       return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
     });
   };
@@ -149,7 +148,7 @@ function PendingAppointmentCard({
       </div>
       <div className="flex-1">
         <p className="font-medium">{appointment.client} - {appointment.service.name}</p>
-        <p className="text-sm text-muted-foreground">{format(new Date(appointment.date), 'dd/MM/yyyy')} - {appointment.time}</p>
+        <p className="text-sm text-muted-foreground">{format(new Date(`${appointment.date}T00:00:00`), 'dd/MM/yyyy')} - {appointment.time}</p>
       </div>
       <div className="flex gap-2">
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -169,35 +168,31 @@ function PendingAppointmentCard({
               <DialogTitle>Confirmar Agendamento</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Cliente</Label>
-                <span className="col-span-3">{appointment.client}</span>
+               <div className="grid grid-cols-2 items-center gap-4">
+                <Label>Cliente</Label>
+                <span>{appointment.client}</span>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Data</Label>
-                <span className="col-span-3">{format(new Date(appointment.date), 'dd/MM/yyyy')} - {appointment.time}</span>
+              <div className="grid grid-cols-2 items-center gap-4">
+                <Label>Data</Label>
+                <span>{format(new Date(`${appointment.date}T00:00:00`), 'dd/MM/yyyy')} - {appointment.time}</span>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Serviço</Label>
-                <span className="col-span-3">{appointment.service.name}</span>
+              <div className="grid grid-cols-2 items-center gap-4">
+                <Label>Serviço</Label>
+                <span>{appointment.service.name}</span>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="staff" className="text-right">
-                  Profissional
-                </Label>
-                <div className='col-span-3'>
-                  <Combobox
-                    options={staffOptions}
-                    value={selectedStaffId}
-                    onChange={setSelectedStaffId}
-                    placeholder="Selecione um profissional"
-                    searchPlaceholder="Buscar profissional..."
-                    emptyText="Nenhum profissional qualificado."
-                  />
-                </div>
+              <div className="grid grid-cols-2 items-center gap-4">
+                <Label htmlFor="staff">Profissional</Label>
+                <Combobox
+                  options={staffOptions}
+                  value={selectedStaffId}
+                  onChange={setSelectedStaffId}
+                  placeholder="Selecione"
+                  searchPlaceholder="Buscar profissional..."
+                  emptyText="Nenhum profissional qualificado."
+                />
               </div>
               {conflictError && (
-                <div className="col-span-4 text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-md">
+                <div className="col-span-2 text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-md">
                     {conflictError}
                 </div>
               )}
@@ -281,5 +276,3 @@ export function PendingAppointments({
     </Card>
   );
 }
-
-    
