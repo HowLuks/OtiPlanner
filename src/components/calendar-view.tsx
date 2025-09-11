@@ -1,64 +1,80 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, addMonths, subMonths } from 'date-fns';
+import { useState } from 'react';
 import { ptBR } from 'date-fns/locale';
 
-import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 
 export function CalendarView() {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [date, setDate] = useState<Date | undefined>(new Date());
 
-  // Prevent hydration error by setting selected date on client
-  useEffect(() => {
-    setSelectedDate(new Date());
-  }, []);
-
-  const handlePrevMonth = () => {
-    setCurrentMonth(subMonths(currentMonth, 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentMonth(addMonths(currentMonth, 1));
-  };
-  
   return (
     <Card className="bg-card">
-      <CardContent className="p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="hover:bg-accent">
-            <ChevronLeft className="h-5 w-5" />
-            <span className="sr-only">Mês anterior</span>
-          </Button>
-          <h3 className="text-lg font-bold capitalize">
-            {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
-          </h3>
-          <Button variant="ghost" size="icon" onClick={handleNextMonth} className="hover:bg-accent">
-            <ChevronRight className="h-5 w-5" />
-            <span className="sr-only">Próximo mês</span>
-          </Button>
-        </div>
+      <CardContent className="p-0">
         <Calendar
-          month={currentMonth}
-          onMonthChange={setCurrentMonth}
           mode="single"
-          selected={selectedDate}
-          onSelect={setSelectedDate}
-          className="p-0"
+          selected={date}
+          onSelect={setDate}
+          className="w-full"
           locale={ptBR}
           classNames={{
-            day_selected: "bg-primary text-primary-foreground hover:bg-primary/90 focus:bg-primary/90",
-            day_today: "text-primary",
-            head_cell: "text-muted-foreground font-bold text-sm",
-            day: "h-10 w-10 p-0 font-normal aria-selected:opacity-100",
-            day_outside: "text-muted-foreground/50 opacity-50",
+            months: 'w-full',
+            caption: 'flex items-center justify-between p-4 sm:p-6',
+            caption_label: 'text-lg font-bold capitalize',
+            nav: 'flex items-center gap-2',
+            nav_button: 'h-9 w-9 bg-transparent p-0 opacity-100 hover:opacity-75',
+            day_selected:
+              'bg-primary text-primary-foreground hover:bg-primary/90 focus:bg-primary/90',
+            day_today: 'text-primary',
+            head_cell: 'text-muted-foreground font-bold text-sm',
+            day: 'h-10 w-10 p-0 font-normal aria-selected:opacity-100',
+            day_outside: 'text-muted-foreground/50 opacity-50',
+          }}
+          components={{
+            IconLeft: () => <ChevronLeft className="h-5 w-5" />,
+            IconRight: () => <ChevronRight className="h-5 w-5" />,
           }}
         />
       </CardContent>
     </Card>
+  );
+}
+
+function ChevronLeft(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRight(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
   );
 }
