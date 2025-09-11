@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -15,13 +16,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
 import useLocalStorage from '@/lib/storage';
 import { initialServices, initialFuncionarios, Service, Funcionario, Appointment, PendingAppointment, initialConfirmedAppointments, initialPendingAppointments, Role, initialRoles } from '@/lib/data';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Home() {
-  const [services] = useLocalStorage<Service[]>('services', initialServices);
-  const [roles] = useLocalStorage<Role[]>('roles', initialRoles);
-  const [funcionarios, setFuncionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
-  const [confirmedAppointments, setConfirmedAppointments] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
-  const [pendingAppointments, setPendingAppointments] = useLocalStorage<PendingAppointment[]>('pendingAppointments', initialPendingAppointments);
+  const [services, setServices, servicesInitialized] = useLocalStorage<Service[]>('services', initialServices);
+  const [roles, setRoles, rolesInitialized] = useLocalStorage<Role[]>('roles', initialRoles);
+  const [funcionarios, setFuncionarios, funcionariosInitialized] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
+  const [confirmedAppointments, setConfirmedAppointments, confirmedInitialized] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
+  const [pendingAppointments, setPendingAppointments, pendingInitialized] = useLocalStorage<PendingAppointment[]>('pendingAppointments', initialPendingAppointments);
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [clientName, setClientName] = useState('');
@@ -31,18 +33,30 @@ export default function Home() {
   const [appointmentTime, setAppointmentTime] = useState('');
   const [appointmentStatus, setAppointmentStatus] = useState<'confirmed' | 'pending'>('pending');
   const [conflictError, setConflictError] = useState('');
+  
+  const isInitialized = servicesInitialized && rolesInitialized && funcionariosInitialized && confirmedInitialized && pendingInitialized;
 
-  const selectedService = useMemo(() => services.find(s => s.id === selectedServiceId), [services, selectedServiceId]);
+  const selectedService = useMemo(() => {
+      if (!isInitialized) return undefined;
+      return services.find(s => s.id === selectedServiceId)
+    }, [services, selectedServiceId, isInitialized]);
 
   const filteredStaff = useMemo(() => {
-    if (!selectedService) {
+    if (!isInitialized || !selectedService) {
       return funcionarios;
     }
     return funcionarios.filter(s => s.roleId === selectedService.roleId);
-  }, [funcionarios, selectedService]);
+  }, [funcionarios, selectedService, isInitialized]);
 
-  const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
-  const serviceOptions = services.map(s => ({ value: s.id, label: `${s.name} - R$${s.price}` }));
+  const staffOptions = useMemo(() => {
+    if (!isInitialized) return [];
+    return filteredStaff.map(s => ({ value: s.id, label: s.name }));
+  }, [filteredStaff, isInitialized]);
+
+  const serviceOptions = useMemo(() => {
+    if (!isInitialized) return [];
+    return services.map(s => ({ value: s.id, label: `${s.name} - R$${s.price}` }));
+  }, [services, isInitialized]);
 
   const resetForm = () => {
     setClientName('');
@@ -55,9 +69,10 @@ export default function Home() {
   };
 
   const checkForConflict = (staffId: string, date: string, time: string): boolean => {
-    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
     const serviceForNewApp = services.find(s => s.id === selectedServiceId);
     if (!serviceForNewApp) return false;
+
+    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
     const newAppointmentEnd = newAppointmentStart + serviceForNewApp.duration * 60 * 1000;
 
     return confirmedAppointments.some(existing => {
@@ -259,27 +274,44 @@ export default function Home() {
             </Dialog>
           </div>
           <CalendarView selectedDate={selectedDate} onDateChange={setSelectedDate} />
-          <ConfirmedAppointments 
-            selectedDate={selectedDate}
-            confirmedAppointments={confirmedAppointments}
-            setConfirmedAppointments={setConfirmedAppointments}
-            services={services}
-            staff={funcionarios}
-            updateStaffSales={updateStaffSales}
-          />
+          {isInitialized ? (
+            <ConfirmedAppointments 
+              selectedDate={selectedDate}
+              confirmedAppointments={confirmedAppointments}
+              setConfirmedAppointments={setConfirmedAppointments}
+              services={services}
+              staff={funcionarios}
+              updateStaffSales={updateStaffSales}
+            />
+          ) : (
+            <div className="mt-8 space-y-4">
+              <Skeleton className="h-8 w-1/3" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          )}
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">
-           <PendingAppointments
-            pendingAppointments={pendingAppointments}
-            setPendingAppointments={setPendingAppointments}
-            confirmedAppointments={confirmedAppointments}
-            setConfirmedAppointments={setConfirmedAppointments}
-            services={services}
-            staff={funcionarios}
-            updateStaffSales={updateStaffSales}
-          />
+          {isInitialized ? (
+             <PendingAppointments
+                pendingAppointments={pendingAppointments}
+                setPendingAppointments={setPendingAppointments}
+                confirmedAppointments={confirmedAppointments}
+                setConfirmedAppointments={setConfirmedAppointments}
+                services={services}
+                staff={funcionarios}
+                updateStaffSales={updateStaffSales}
+            />
+          ) : (
+             <div className="space-y-4">
+              <Skeleton className="h-8 w-1/2" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          )}
         </aside>
       </main>
     </div>
   );
-}
+
+    

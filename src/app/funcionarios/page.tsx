@@ -177,9 +177,8 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
 }
 
 export default function FuncionariosPage() {
-  const [isClient, setIsClient] = useState(false);
-  const [funcionarios, setFuncionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
-  const [roles, setRoles] = useLocalStorage<Role[]>('roles', initialRoles);
+  const [funcionarios, setFuncionarios, funcionariosInitialized] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
+  const [roles, setRoles, rolesInitialized] = useLocalStorage<Role[]>('roles', initialRoles);
   
   const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
@@ -187,9 +186,7 @@ export default function FuncionariosPage() {
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const isClient = funcionariosInitialized && rolesInitialized;
 
   const handleAddNewRole = () => {
     if (newRoleName.trim() !== '' && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
