@@ -29,8 +29,26 @@ import useLocalStorage from "@/lib/storage";
 
 export default function ServicosPage() {
   const [services, setServices] = useLocalStorage<Service[]>('services', initialServices);
-  const [roles, setRoles] = useLocalStorage<string[]>('roles', initialRoles);
+  const [roles] = useLocalStorage<string[]>('roles', initialRoles);
   const [selectedRole, setSelectedRole] = useState('');
+
+  const [newServiceName, setNewServiceName] = useState('');
+  const [newServicePrice, setNewServicePrice] = useState<number | ''>('');
+
+  const handleAddNewService = () => {
+    if (newServiceName.trim() && newServicePrice && selectedRole) {
+      const newService: Service = {
+        id: `s${services.length + 1}`,
+        name: newServiceName.trim(),
+        price: Number(newServicePrice),
+        role: roles.find(r => r.toLowerCase() === selectedRole) || '',
+      };
+      setServices([...services, newService]);
+      setNewServiceName('');
+      setNewServicePrice('');
+      setSelectedRole('');
+    }
+  };
 
   const roleOptions = roles.map(role => ({ value: role.toLowerCase(), label: role }));
 
@@ -38,7 +56,7 @@ export default function ServicosPage() {
     <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Serviços</h2>
+          <h1 className="text-3xl font-bold tracking-tight">Serviços</h1>
         </div>
         <Dialog>
           <DialogTrigger asChild>
@@ -54,11 +72,11 @@ export default function ServicosPage() {
             <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="service-name">Nome do Serviço</Label>
-                  <Input id="service-name" placeholder="Ex: Corte Social" />
+                  <Input id="service-name" placeholder="Ex: Corte Social" value={newServiceName} onChange={e => setNewServiceName(e.target.value)} />
                 </div>
                  <div className="space-y-2">
                   <Label htmlFor="service-price">Valor (R$)</Label>
-                  <Input id="service-price" type="number" placeholder="Ex: 30.00" />
+                  <Input id="service-price" type="number" placeholder="Ex: 30.00" value={newServicePrice} onChange={e => setNewServicePrice(e.target.value === '' ? '' : Number(e.target.value))} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role-select">Função</Label>
@@ -73,7 +91,7 @@ export default function ServicosPage() {
                 </div>
                 <div className="flex justify-end pt-4">
                   <DialogClose asChild>
-                    <Button>Salvar Serviço</Button>
+                    <Button onClick={handleAddNewService}>Salvar Serviço</Button>
                   </DialogClose>
                 </div>
             </div>

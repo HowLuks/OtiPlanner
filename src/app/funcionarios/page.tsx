@@ -28,11 +28,93 @@ export default function FuncionariosPage() {
   const [newEmployeeRole, setNewEmployeeRole] = useState('');
   const [editEmployeeRole, setEditEmployeeRole] = useState('');
 
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newEmployeeName, setNewEmployeeName] = useState('');
+  const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
+  const [editEmployeeName, setEditEmployeeName] = useState('');
+  const [editEmployeePhoto, setEditEmployeePhoto] = useState<string | null>(null);
+  const [editSalesTarget, setEditSalesTarget] = useState<number | ''>('');
+
 
   const handleEditClick = (funcionario: Funcionario) => {
     setSelectedFuncionario(funcionario);
-    setEditEmployeeRole(funcionario.role.toLowerCase())
+    setEditEmployeeRole(funcionario.role.toLowerCase());
+    setEditEmployeeName(funcionario.name);
+    setEditEmployeePhoto(funcionario.avatarUrl);
+    setEditSalesTarget(funcionario.salesTarget);
   };
+  
+  const handleAddNewRole = () => {
+    if (newRoleName.trim() !== '' && !roles.find(r => r.toLowerCase() === newRoleName.toLowerCase())) {
+      setRoles([...roles, newRoleName.trim()]);
+      setNewRoleName('');
+    }
+  };
+
+  const handleAddNewEmployee = () => {
+    if (newEmployeeName.trim() && newEmployeeRole) {
+      const newEmployee: Funcionario = {
+        id: (funcionarios.length + 1).toString(),
+        name: newEmployeeName.trim(),
+        role: roles.find(r => r.toLowerCase() === newEmployeeRole) || '',
+        avatarUrl: newEmployeePhoto || "https://picsum.photos/seed/new/112/112",
+        avatarHint: 'person portrait',
+        salesGoal: 0,
+        salesValue: 0,
+        salesTarget: 0,
+        online: false,
+      };
+      setFuncionarios([...funcionarios, newEmployee]);
+      setNewEmployeeName('');
+      setNewEmployeeRole('');
+      setNewEmployeePhoto(null);
+    }
+  };
+
+  const handleUpdateEmployee = () => {
+    if (selectedFuncionario && editEmployeeName.trim() && editEmployeeRole) {
+      setFuncionarios(funcionarios.map(f =>
+        f.id === selectedFuncionario.id
+          ? {
+              ...f,
+              name: editEmployeeName.trim(),
+              role: roles.find(r => r.toLowerCase() === editEmployeeRole) || f.role,
+              avatarUrl: editEmployeePhoto || f.avatarUrl,
+            }
+          : f
+      ));
+    }
+  };
+
+  const handleDeleteEmployee = (id: string) => {
+    setFuncionarios(funcionarios.filter(f => f.id !== id));
+  };
+  
+  const handleUpdateSalesTarget = () => {
+     if (selectedFuncionario && editSalesTarget) {
+      setFuncionarios(funcionarios.map(f =>
+        f.id === selectedFuncionario.id
+          ? {
+              ...f,
+              salesTarget: Number(editSalesTarget),
+              salesGoal: f.salesValue > 0 ? Math.round((f.salesValue / Number(editSalesTarget)) * 100) : 0,
+            }
+          : f
+      ));
+    }
+  };
+  
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, setPhoto: (url: string) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
 
   const roleOptions = roles.map(role => ({ value: role.toLowerCase(), label: role }));
   
@@ -41,7 +123,7 @@ export default function FuncionariosPage() {
       <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Funcionários</h2>
+            <h1 className="text-3xl font-bold tracking-tight">Funcionários</h1>
           </div>
           <div className="flex gap-2 mt-4 md:mt-0">
              <Dialog>
@@ -58,11 +140,11 @@ export default function FuncionariosPage() {
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="new-role">Nome da Função</Label>
-                    <Input id="new-role" placeholder="Ex: Esteticista" />
+                    <Input id="new-role" placeholder="Ex: Esteticista" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} />
                   </div>
                   <div className="flex justify-end pt-4">
                     <DialogClose asChild>
-                      <Button>Salvar Função</Button>
+                      <Button onClick={handleAddNewRole}>Salvar Função</Button>
                     </DialogClose>
                   </div>
                 </div>
@@ -83,21 +165,25 @@ export default function FuncionariosPage() {
                   <div className="space-y-2">
                     <Label>Foto</Label>
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                        <Upload className="h-8 w-8 text-muted-foreground" />
+                       <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                        {newEmployeePhoto ? (
+                          <Image src={newEmployeePhoto} alt="Preview" width={64} height={64} className="rounded-full object-cover" />
+                        ) : (
+                          <Upload className="h-8 w-8 text-muted-foreground" />
+                        )}
                       </div>
                       <Button variant="outline" size="sm" asChild>
                         <label htmlFor="new-photo-upload" className="cursor-pointer">
                           <Upload className="mr-2 h-4 w-4" />
                           Enviar foto
-                          <input id="new-photo-upload" type="file" className="sr-only" />
+                          <input id="new-photo-upload" type="file" accept="image/*" className="sr-only" onChange={e => handlePhotoUpload(e, setNewEmployeePhoto)} />
                         </label>
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="new-name">Nome</Label>
-                    <Input id="new-name" placeholder="Nome do funcionário"/>
+                    <Input id="new-name" placeholder="Nome do funcionário" value={newEmployeeName} onChange={e => setNewEmployeeName(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="new-role-select">Função</Label>
@@ -112,7 +198,7 @@ export default function FuncionariosPage() {
                   </div>
                   <div className="flex justify-end pt-4">
                      <DialogClose asChild>
-                        <Button>Salvar Funcionário</Button>
+                        <Button onClick={handleAddNewEmployee}>Salvar Funcionário</Button>
                      </DialogClose>
                   </div>
                 </div>
@@ -157,7 +243,7 @@ export default function FuncionariosPage() {
                           <Edit className="text-xl" />
                       </Button>
                    </DialogTrigger>
-                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive">
+                   <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => handleDeleteEmployee(funcionario.id)}>
                     <Trash className="text-xl" />
                   </Button>
                 </div>
@@ -180,11 +266,13 @@ export default function FuncionariosPage() {
                             id="salesTarget"
                             type="number"
                             placeholder={`R$ ${selectedFuncionario.salesTarget.toLocaleString('pt-BR')}`}
+                            value={editSalesTarget}
+                            onChange={(e) => setEditSalesTarget(e.target.value === '' ? '' : Number(e.target.value))}
                           />
                         </div>
                         <div className="flex justify-end pt-4">
                           <DialogClose asChild>
-                            <Button>Salvar Meta</Button>
+                            <Button onClick={handleUpdateSalesTarget}>Salvar Meta</Button>
                           </DialogClose>
                         </div>
                       </div>
@@ -194,19 +282,19 @@ export default function FuncionariosPage() {
                         <div className="space-y-2">
                           <Label>Foto</Label>
                           <div className="flex items-center gap-4">
-                            <Image src={selectedFuncionario.avatarUrl} alt={selectedFuncionario.name} width={64} height={64} className="rounded-full" />
+                            <Image src={editEmployeePhoto || selectedFuncionario.avatarUrl} alt={selectedFuncionario.name} width={64} height={64} className="rounded-full" />
                             <Button variant="outline" size="sm" asChild>
                               <label htmlFor="photo-upload" className="cursor-pointer">
                                 <Upload className="mr-2 h-4 w-4" />
                                 Alterar foto
-                                <input id="photo-upload" type="file" className="sr-only" />
+                                <input id="photo-upload" type="file" accept="image/*" className="sr-only" onChange={e => handlePhotoUpload(e, setEditEmployeePhoto)} />
                               </label>
                             </Button>
                           </div>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="name">Nome</Label>
-                          <Input id="name" defaultValue={selectedFuncionario.name} />
+                          <Input id="name" value={editEmployeeName} onChange={e => setEditEmployeeName(e.target.value)} />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="role-select">Função</Label>
@@ -221,7 +309,7 @@ export default function FuncionariosPage() {
                         </div>
                         <div className="flex justify-end pt-4">
                            <DialogClose asChild>
-                            <Button>Salvar Alterações</Button>
+                            <Button onClick={handleUpdateEmployee}>Salvar Alterações</Button>
                            </DialogClose>
                         </div>
                       </div>
