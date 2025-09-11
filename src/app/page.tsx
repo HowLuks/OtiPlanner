@@ -229,7 +229,10 @@ export default function Home() {
             </Dialog>
           </div>
           <CalendarView selectedDate={selectedDate} onDateChange={setSelectedDate} />
-          <ConfirmedAppointments selectedDate={selectedDate} />
+          <ConfirmedAppointments 
+            selectedDate={selectedDate}
+            confirmedAppointments={confirmedAppointments}
+          />
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">
            <PendingAppointments
@@ -245,5 +248,3 @@ export default function Home() {
     </div>
   );
 }
-
-    

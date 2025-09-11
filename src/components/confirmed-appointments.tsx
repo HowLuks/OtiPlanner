@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { initialConfirmedAppointments, initialStaff, Staff, Appointment } from "@/lib/data";
+import { initialStaff, Staff, Appointment } from "@/lib/data";
 import useLocalStorage from "@/lib/storage";
 
 
@@ -22,10 +22,10 @@ const getStaffMember = (staff: Staff[], staffId: string): Staff | undefined => {
 
 interface ConfirmedAppointmentsProps {
   selectedDate: Date | undefined;
+  confirmedAppointments: Appointment[];
 }
 
-export function ConfirmedAppointments({ selectedDate }: ConfirmedAppointmentsProps) {
-  const [confirmedAppointments] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
+export function ConfirmedAppointments({ selectedDate, confirmedAppointments }: ConfirmedAppointmentsProps) {
   const [staff] = useLocalStorage<Staff[]>('staff', initialStaff);
 
   const filteredAppointments = useMemo(() => {
