@@ -54,7 +54,6 @@ export function CalendarView() {
             day_selected: "bg-primary text-primary-foreground hover:bg-primary/90 focus:bg-primary/90",
             day_today: "text-primary",
             head_cell: "text-muted-foreground font-bold text-sm",
-            cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-transparent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md",
             day: "h-10 w-10 p-0 font-normal aria-selected:opacity-100",
             day_outside: "text-muted-foreground/50 opacity-50",
           }}
