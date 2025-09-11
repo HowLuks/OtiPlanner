@@ -26,7 +26,7 @@ export const initialRoles: string[] = [
 
 export const initialFuncionarios: Funcionario[] = [
     {
-      id: "1",
+      id: "func-1",
       name: "Mariana Silva",
       role: "Cabeleireira",
       avatarUrl: "https://picsum.photos/seed/5/112/112",
@@ -36,7 +36,7 @@ export const initialFuncionarios: Funcionario[] = [
       salesTarget: 5000,
     },
     {
-      id: "2",
+      id: "func-2",
       name: "Lucas Oliveira",
       role: "Barbeiro",
       avatarUrl: "https://picsum.photos/seed/6/112/112",
@@ -46,7 +46,7 @@ export const initialFuncionarios: Funcionario[] = [
       salesTarget: 4000,
     },
     {
-      id: "3",
+      id: "func-3",
       name: "Juliana Santos",
       role: "Manicure",
       avatarUrl: "https://picsum.photos/seed/7/112/112",
@@ -56,7 +56,7 @@ export const initialFuncionarios: Funcionario[] = [
       salesTarget: 6000,
     },
     {
-      id: "4",
+      id: "func-4",
       name: "Camila Pereira",
       role: "Esteticista",
       avatarUrl: "https://picsum.photos/seed/9/112/112",
@@ -65,7 +65,6 @@ export const initialFuncionarios: Funcionario[] = [
       salesValue: 3600,
       salesTarget: 4500,
     },
-    // Staff members from old initialStaff list merged here
     {
       id: 'staff-1',
       name: 'Carla',

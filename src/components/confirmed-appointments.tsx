@@ -12,11 +12,11 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { initialFuncionarios, Staff, Appointment } from "@/lib/data";
+import { initialFuncionarios, Funcionario, Appointment } from "@/lib/data";
 import useLocalStorage from "@/lib/storage";
 
 
-const getStaffMember = (staff: Staff[], staffId: string): Staff | undefined => {
+const getStaffMember = (staff: Funcionario[], staffId: string): Funcionario | undefined => {
   return staff.find(s => s.id === staffId);
 };
 
@@ -27,7 +27,7 @@ interface ConfirmedAppointmentsProps {
 }
 
 export function ConfirmedAppointments({ selectedDate, confirmedAppointments }: ConfirmedAppointmentsProps) {
-  const [staff] = useLocalStorage<Staff[]>('staff', initialFuncionarios);
+  const [staff] = useLocalStorage<Funcionario[]>('staff', initialFuncionarios);
 
   const filteredAppointments = useMemo(() => {
     if (!selectedDate) {

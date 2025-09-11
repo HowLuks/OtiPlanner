@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { useToast } from "@/hooks/use-toast";
 import { acceptRejectAppointment } from '@/ai/flows/accept-reject-appointments';
-import { PendingAppointment, Appointment, Service, Staff } from '@/lib/data';
+import { PendingAppointment, Appointment, Service, Funcionario } from '@/lib/data';
 
 function PendingAppointmentCard({ 
   appointment,
@@ -25,7 +25,7 @@ function PendingAppointmentCard({
   confirmedAppointments: Appointment[];
   onConfirm: (appointmentId: string, newConfirmedAppointment: Appointment) => void;
   onReject: (id: string) => void;
-  staff: Staff[];
+  staff: Funcionario[];
 }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -238,7 +238,7 @@ export function PendingAppointments({
   confirmedAppointments: Appointment[];
   setConfirmedAppointments: (value: Appointment[] | ((val: Appointment[]) => Appointment[])) => void;
   services: Service[];
-  staff: Staff[];
+  staff: Funcionario[];
 }) {
 
   const handleConfirm = (pendingAppointmentId: string, newConfirmedAppointment: Appointment) => {
