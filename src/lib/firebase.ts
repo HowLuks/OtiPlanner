@@ -5,12 +5,12 @@ import { getAuth } from 'firebase/auth';
 import { initialFuncionarios, initialRoles, initialServices, initialConfirmedAppointments, initialPendingAppointments, initialTransactions, initialEmployeePerformance, initialSaldoEmCaixa } from './data';
 
 const firebaseConfig = {
-  projectId: "studio-6228903307-46c1c",
-  appId: "1:564947118922:web:e7bde2fab7767ee7796fb3",
-  storageBucket: "studio-6228903307-46c1c.firebasestorage.app",
   apiKey: "AIzaSyDA2qwwoF7GELvhp4UzGeceTajJJhauYJ8",
   authDomain: "studio-6228903307-46c1c.firebaseapp.com",
+  projectId: "studio-6228903307-46c1c",
+  storageBucket: "studio-6228903307-46c1c.firebasestorage.app",
   messagingSenderId: "564947118922",
+  appId: "1:564947118922:web:e7bde2fab7767ee7796fb3",
   measurementId: "G-XXXXXXXXXX"
 };
 
