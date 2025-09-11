@@ -68,17 +68,6 @@ export default function FuncionariosPage() {
     },
     {
       id: "4",
-      name: "Ricardo Almeida",
-      role: "Recepcionista",
-      avatarUrl: "https://picsum.photos/seed/8/112/112",
-      avatarHint: "man portrait",
-      salesGoal: 60,
-      salesValue: 2100,
-      salesTarget: 3500,
-      online: false,
-    },
-    {
-      id: "5",
       name: "Camila Pereira",
       role: "Esteticista",
       avatarUrl: "https://picsum.photos/seed/9/112/112",
