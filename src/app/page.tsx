@@ -164,7 +164,13 @@ export default function Home() {
           <ConfirmedAppointments />
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">
-          <PendingAppointments />
+           <PendingAppointments
+            pendingAppointments={pendingAppointments}
+            setPendingAppointments={setPendingAppointments}
+            setConfirmedAppointments={setConfirmedAppointments}
+            services={services}
+            staff={staff}
+          />
         </aside>
       </main>
     </div>
