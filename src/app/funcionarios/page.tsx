@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Image from "next/image";
@@ -187,7 +187,9 @@ export default function FuncionariosPage() {
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
 
-  const isClient = funcionariosInitialized && rolesInitialized;
+  if (!funcionariosInitialized || !rolesInitialized) {
+    return null; // Or a loading spinner
+  }
 
   const handleAddNewRole = () => {
     if (newRoleName.trim() !== '' && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
@@ -238,10 +240,6 @@ export default function FuncionariosPage() {
       reader.readAsDataURL(file);
     }
   };
-
-  if (!isClient) {
-    return null; // Or a loading spinner
-  }
 
   const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
   

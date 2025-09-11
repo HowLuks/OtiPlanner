@@ -10,9 +10,9 @@ import useLocalStorage from "@/lib/storage";
 import { initialFuncionarios, initialSaldoEmCaixa, Funcionario, initialRoles, Role } from "@/lib/data";
 
 export default function DashboardPage() {
-    const [funcionarios, setFuncionarios, funcionariosInitialized] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
-    const [saldoEmCaixa, setSaldoEmCaixa, saldoInitialized] = useLocalStorage<number>('saldoEmCaixa', initialSaldoEmCaixa);
-    const [roles, setRoles, rolesInitialized] = useLocalStorage<Role[]>('roles', initialRoles);
+    const [funcionarios, , funcionariosInitialized] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
+    const [saldoEmCaixa, , saldoInitialized] = useLocalStorage<number>('saldoEmCaixa', initialSaldoEmCaixa);
+    const [roles, , rolesInitialized] = useLocalStorage<Role[]>('roles', initialRoles);
 
     if (!funcionariosInitialized || !saldoInitialized || !rolesInitialized) {
         return null; // ou um componente de loading
