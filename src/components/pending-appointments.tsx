@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
-import { utcToZonedTime } from 'date-fns-tz';
+import { toZonedTime } from 'date-fns-tz';
 import { Clock, Check, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,12 @@ function PendingAppointmentCard({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [conflictError, setConflictError] = useState('');
+  const [displayDate, setDisplayDate] = useState('');
+  
+  useEffect(() => {
+    // Format date on client to avoid hydration mismatch
+    setDisplayDate(format(toZonedTime(new Date(appointment.date), 'UTC'), 'dd/MM/yyyy'));
+  }, [appointment.date]);
 
   const filteredStaff = useMemo(() => {
     if (!appointment.service || !appointment.service.role) {
@@ -43,15 +49,14 @@ function PendingAppointmentCard({
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
   const checkForConflict = (staffId: string, date: string, time: string, duration: number): boolean => {
-    // Add timezone handling to avoid off-by-one day errors
-    const newAppointmentStart = utcToZonedTime(new Date(`${date}T${time}`), 'UTC').getTime();
+    const newAppointmentStart = toZonedTime(new Date(`${date}T${time}`), 'UTC').getTime();
     const newAppointmentEnd = newAppointmentStart + duration * 60 * 1000;
 
     return confirmedAppointments.some(existing => {
       if (existing.staffId !== staffId || existing.date !== date) {
         return false;
       }
-      const existingStart = utcToZonedTime(new Date(`${existing.date}T${existing.time}`), 'UTC').getTime();
+      const existingStart = toZonedTime(new Date(`${existing.date}T${existing.time}`), 'UTC').getTime();
       const existingEnd = existingStart + existing.duration * 60 * 1000;
       
       return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
@@ -81,7 +86,7 @@ function PendingAppointmentCard({
         if (result.success) {
           const newConfirmedAppointment: Appointment = {
             id: `c${Date.now()}`,
-            date: format(utcToZonedTime(new Date(appointment.date), 'UTC'), 'yyyy-MM-dd'),
+            date: format(toZonedTime(new Date(appointment.date), 'UTC'), 'yyyy-MM-dd'),
             client: appointment.client,
             time: appointment.time,
             service: appointment.service.name,
@@ -142,9 +147,6 @@ function PendingAppointmentCard({
       setSelectedStaffId('');
     }
   }
-
-  // To fix hydration error, we need to make sure the date is parsed in UTC
-  const displayDate = format(utcToZonedTime(new Date(appointment.date), 'UTC'), 'dd/MM/yyyy');
 
   return (
     <div className="flex items-center gap-4 p-4 rounded-lg bg-background">
