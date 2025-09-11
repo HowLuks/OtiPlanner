@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Image from "next/image";
-import { Edit, Trash, Plus, CheckCircle, XCircle, Upload } from "lucide-react";
+import { Edit, Trash, Plus, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ export default function FuncionariosPage() {
   const [newRoleName, setNewRoleName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
+  const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
   const [editEmployeeName, setEditEmployeeName] = useState('');
   const [editEmployeePhoto, setEditEmployeePhoto] = useState<string | null>(null);
   const [editSalesTarget, setEditSalesTarget] = useState<number | ''>('');
@@ -61,13 +62,13 @@ export default function FuncionariosPage() {
         avatarHint: 'person portrait',
         salesGoal: 0,
         salesValue: 0,
-        salesTarget: 0,
-        online: false,
+        salesTarget: Number(newEmployeeSalesTarget) || 2000,
       };
       setFuncionarios([...funcionarios, newEmployee]);
       setNewEmployeeName('');
       setNewEmployeeRole('');
       setNewEmployeePhoto(null);
+      setNewEmployeeSalesTarget(2000);
     }
   };
 
@@ -196,6 +197,16 @@ export default function FuncionariosPage() {
                         emptyText="Nenhuma função encontrada."
                       />
                   </div>
+                   <div className="space-y-2">
+                    <Label htmlFor="new-sales-target">Meta de Vendas</Label>
+                    <Input
+                      id="new-sales-target"
+                      type="number"
+                      placeholder="2000"
+                      value={newEmployeeSalesTarget}
+                      onChange={(e) => setNewEmployeeSalesTarget(e.target.value === '' ? '' : Number(e.target.value))}
+                    />
+                  </div>
                   <div className="flex justify-end pt-4">
                      <DialogClose asChild>
                         <Button onClick={handleAddNewEmployee}>Salvar Funcionário</Button>
@@ -219,11 +230,6 @@ export default function FuncionariosPage() {
                     height={112}
                     data-ai-hint={funcionario.avatarHint}
                   />
-                  {funcionario.online ? (
-                    <CheckCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-green-400 text-background border-2 border-card" />
-                  ) : (
-                    <XCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-red-500 text-background border-2 border-card" />
-                  )}
                 </div>
                 <h3 className="font-bold text-lg">{funcionario.name}</h3>
                 <p className="text-sm text-muted-foreground">{funcionario.role}</p>

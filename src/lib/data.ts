@@ -78,7 +78,6 @@ export type Funcionario = {
   salesGoal: number;
   salesValue: number;
   salesTarget: number;
-  online: boolean;
 };
 
 export const initialFuncionarios: Funcionario[] = [
@@ -91,7 +90,6 @@ export const initialFuncionarios: Funcionario[] = [
       salesGoal: 75,
       salesValue: 3750,
       salesTarget: 5000,
-      online: true,
     },
     {
       id: "2",
@@ -102,7 +100,6 @@ export const initialFuncionarios: Funcionario[] = [
       salesGoal: 50,
       salesValue: 2000,
       salesTarget: 4000,
-      online: true,
     },
     {
       id: "3",
@@ -113,7 +110,6 @@ export const initialFuncionarios: Funcionario[] = [
       salesGoal: 90,
       salesValue: 5400,
       salesTarget: 6000,
-      online: true,
     },
     {
       id: "4",
@@ -124,7 +120,6 @@ export const initialFuncionarios: Funcionario[] = [
       salesGoal: 80,
       salesValue: 3600,
       salesTarget: 4500,
-      online: true,
     },
   ];
 
