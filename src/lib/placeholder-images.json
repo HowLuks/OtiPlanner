@@ -23,6 +23,36 @@
       "description": "Staff member 3 avatar",
       "imageUrl": "https://picsum.photos/seed/4/40/40",
       "imageHint": "profile person"
+    },
+    {
+      "id": "employee-1",
+      "description": "Employee 1 avatar",
+      "imageUrl": "https://picsum.photos/seed/5/112/112",
+      "imageHint": "woman portrait"
+    },
+    {
+      "id": "employee-2",
+      "description": "Employee 2 avatar",
+      "imageUrl": "https://picsum.photos/seed/6/112/112",
+      "imageHint": "man portrait"
+    },
+    {
+      "id": "employee-3",
+      "description": "Employee 3 avatar",
+      "imageUrl": "https://picsum.photos/seed/7/112/112",
+      "imageHint": "woman portrait"
+    },
+    {
+      "id": "employee-4",
+      "description": "Employee 4 avatar",
+      "imageUrl": "https://picsum.photos/seed/8/112/112",
+      "imageHint": "man portrait"
+    },
+    {
+      "id": "employee-5",
+      "description": "Employee 5 avatar",
+      "imageUrl": "https://picsum.photos/seed/9/112/112",
+      "imageHint": "woman portrait"
     }
   ]
 }
