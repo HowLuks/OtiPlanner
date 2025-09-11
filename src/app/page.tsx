@@ -17,10 +17,12 @@ import { Plus } from 'lucide-react';
 import { Service, Funcionario, Appointment, PendingAppointment, Role } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db, seedDatabase } from '@/lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/auth-context';
 
 
 export default function Home() {
+  const { user, loading: authLoading } = useAuth();
   const [services, setServices] = useState<Service[] | null>(null);
   const [roles, setRoles] = useState<Role[] | null>(null);
   const [funcionarios, setFuncionarios] = useState<Funcionario[] | null>(null);
@@ -38,46 +40,40 @@ export default function Home() {
   const [appointmentStatus, setAppointmentStatus] = useState<'confirmed' | 'pending'>('pending');
   const [conflictError, setConflictError] = useState('');
   
- useEffect(() => {
-    const seedAndFetch = async () => {
-      await seedDatabase(); // Seed data if necessary
-    };
-    seedAndFetch();
+  useEffect(() => {
+    if (!authLoading && user) {
+        // Seed the database if necessary, only after user is authenticated
+        seedDatabase();
 
-    const collections = {
-      services: collection(db, 'services'),
-      roles: collection(db, 'roles'),
-      funcionarios: collection(db, 'funcionarios'),
-      confirmedAppointments: collection(db, 'confirmedAppointments'),
-      pendingAppointments: collection(db, 'pendingAppointments'),
-    };
+        const unsubServices = onSnapshot(collection(db, 'services'), snapshot => setServices(snapshot.docs.map(doc => doc.data() as Service)));
+        const unsubRoles = onSnapshot(collection(db, 'roles'), snapshot => setRoles(snapshot.docs.map(doc => doc.data() as Role)));
+        const unsubFuncionarios = onSnapshot(collection(db, 'funcionarios'), snapshot => setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario)));
+        const unsubConfirmed = onSnapshot(collection(db, 'confirmedAppointments'), snapshot => setConfirmedAppointments(snapshot.docs.map(doc => doc.data() as Appointment)));
+        const unsubPending = onSnapshot(collection(db, 'pendingAppointments'), snapshot => setPendingAppointments(snapshot.docs.map(doc => doc.data() as PendingAppointment)));
+        
+        // Clean up subscriptions on unmount
+        return () => {
+            unsubServices();
+            unsubRoles();
+            unsubFuncionarios();
+            unsubConfirmed();
+            unsubPending();
+        };
+    }
+  }, [user, authLoading]);
 
-    const unsubscribes = [
-      onSnapshot(collections.services, snapshot => setServices(snapshot.docs.map(doc => doc.data() as Service))),
-      onSnapshot(collections.roles, snapshot => setRoles(snapshot.docs.map(doc => doc.data() as Role))),
-      onSnapshot(collections.funcionarios, snapshot => setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario))),
-      onSnapshot(collections.confirmedAppointments, snapshot => setConfirmedAppointments(snapshot.docs.map(doc => doc.data() as Appointment))),
-      onSnapshot(collections.pendingAppointments, snapshot => setPendingAppointments(snapshot.docs.map(doc => doc.data() as PendingAppointment))),
-    ];
-    
-    // Check if all initial data is loaded
-     const checkLoading = () => {
-        if (services && roles && funcionarios && confirmedAppointments && pendingAppointments) {
-            setIsLoading(false);
-        }
-     }
-     // Give it a moment for the onSnapshot to fire
-     setTimeout(checkLoading, 1500);
+  // Determine overall loading state
+  useEffect(() => {
+    if (!authLoading && services !== null && roles !== null && funcionarios !== null && confirmedAppointments !== null && pendingAppointments !== null) {
+      setIsLoading(false);
+    } else if (!authLoading && !user) {
+      // If auth is done and there's no user, we are not loading data.
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+  }, [authLoading, user, services, roles, funcionarios, confirmedAppointments, pendingAppointments]);
 
-
-    // Cleanup on unmount
-    return () => unsubscribes.forEach(unsub => unsub());
-  }, [services, roles, funcionarios, confirmedAppointments, pendingAppointments]);
-
-
-  const refetchAppointments = async () => {
-      // This is now handled by onSnapshot, but we can keep it for optimistic updates if needed
-  }
 
   const selectedService = useMemo(() => {
       if (!services) return undefined;

@@ -20,7 +20,8 @@ import { Funcionario, Role } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/auth-context';
 
 interface FuncionarioCardProps {
   funcionario: Funcionario;
@@ -172,6 +173,7 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
 }
 
 export default function FuncionariosPage() {
+  const { user, loading: authLoading } = useAuth();
   const [funcionarios, setFuncionarios] = useState<Funcionario[] | null>(null);
   const [roles, setRoles] = useState<Role[] | null>(null);
 
@@ -182,21 +184,23 @@ export default function FuncionariosPage() {
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
 
    useEffect(() => {
-    const unsubFunc = onSnapshot(collection(db, 'funcionarios'), (snapshot) => {
-        setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario));
-    });
+    if (!authLoading && user) {
+        const unsubFunc = onSnapshot(collection(db, 'funcionarios'), (snapshot) => {
+            setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario));
+        });
 
-    const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
-        setRoles(snapshot.docs.map(doc => doc.data() as Role));
-    });
-    
-    return () => {
-        unsubFunc();
-        unsubRoles();
-    };
-  }, []);
+        const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
+            setRoles(snapshot.docs.map(doc => doc.data() as Role));
+        });
+        
+        return () => {
+            unsubFunc();
+            unsubRoles();
+        };
+    }
+  }, [user, authLoading]);
 
-  const isLoading = !roles || !funcionarios;
+  const isLoading = authLoading || !roles || !funcionarios;
 
   if (isLoading) {
       return (

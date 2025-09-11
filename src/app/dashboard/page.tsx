@@ -9,42 +9,46 @@ import { DollarSign, TrendingUp, Users } from "lucide-react";
 import Image from "next/image";
 import { Funcionario, Role } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
-import { collection, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function DashboardPage() {
+    const { user, loading: authLoading } = useAuth();
     const [funcionarios, setFuncionarios] = useState<Funcionario[] | null>(null);
     const [saldoEmCaixa, setSaldoEmCaixa] = useState<number | null>(null);
     const [roles, setRoles] = useState<Role[] | null>(null);
 
     useEffect(() => {
-        const unsubFunc = onSnapshot(collection(db, 'funcionarios'), (snapshot) => {
-            setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario));
-        });
+        if (!authLoading && user) {
+            const unsubFunc = onSnapshot(collection(db, 'funcionarios'), (snapshot) => {
+                setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario));
+            });
 
-        const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
-            setRoles(snapshot.docs.map(doc => doc.data() as Role));
-        });
+            const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
+                setRoles(snapshot.docs.map(doc => doc.data() as Role));
+            });
 
-        const unsubSaldo = onSnapshot(doc(db, 'appState', 'saldoEmCaixa'), (doc) => {
-            if (doc.exists()) {
-                setSaldoEmCaixa(doc.data().value);
-            }
-        });
-        
-        return () => {
-            unsubFunc();
-            unsubRoles();
-            unsubSaldo();
-        };
-    }, []);
+            const unsubSaldo = onSnapshot(doc(db, 'appState', 'saldoEmCaixa'), (doc) => {
+                if (doc.exists()) {
+                    setSaldoEmCaixa(doc.data().value);
+                }
+            });
+            
+            return () => {
+                unsubFunc();
+                unsubRoles();
+                unsubSaldo();
+            };
+        }
+    }, [user, authLoading]);
 
     const getRoleName = (roleId: string) => {
         if (!roles) return 'Carregando...';
         return roles.find(role => role.id === roleId)?.name || 'N/A';
     }
 
-    const isLoading = !funcionarios || saldoEmCaixa === null || !roles;
+    const isLoading = authLoading || !funcionarios || saldoEmCaixa === null || !roles;
 
     if (isLoading) {
         return (

@@ -27,9 +27,11 @@ import { Combobox } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/auth-context';
 
 
 export default function ServicosPage() {
+  const { user, loading: authLoading } = useAuth();
   const [services, setServices] = useState<Service[] | null>(null);
   const [roles, setRoles] = useState<Role[] | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState('');
@@ -39,19 +41,21 @@ export default function ServicosPage() {
   const [newServiceDuration, setNewServiceDuration] = useState<number | ''>(30);
 
   useEffect(() => {
-    const unsubServices = onSnapshot(collection(db, 'services'), (snapshot) => {
-        setServices(snapshot.docs.map(doc => doc.data() as Service));
-    });
+    if (!authLoading && user) {
+      const unsubServices = onSnapshot(collection(db, 'services'), (snapshot) => {
+          setServices(snapshot.docs.map(doc => doc.data() as Service));
+      });
 
-    const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
-        setRoles(snapshot.docs.map(doc => doc.data() as Role));
-    });
+      const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
+          setRoles(snapshot.docs.map(doc => doc.data() as Role));
+      });
 
-    return () => {
-        unsubServices();
-        unsubRoles();
-    };
-  }, []);
+      return () => {
+          unsubServices();
+          unsubRoles();
+      };
+    }
+  }, [user, authLoading]);
 
 
   const handleAddNewService = async () => {
@@ -79,7 +83,7 @@ export default function ServicosPage() {
     return roles.find(role => role.id === roleId)?.name || 'N/A';
   }
 
-  const isLoading = !services || !roles;
+  const isLoading = authLoading || !services || !roles;
 
   if (isLoading) {
       return (

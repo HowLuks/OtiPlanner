@@ -7,27 +7,31 @@ import { Transaction, EmployeePerformance } from "@/lib/data";
 import { Skeleton } from '@/components/ui/skeleton';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function FinanceiroPage() {
+    const { user, loading: authLoading } = useAuth();
     const [transactions, setTransactions] = useState<Transaction[] | null>(null);
     const [employeePerformance, setEmployeePerformance] = useState<EmployeePerformance[] | null>(null);
 
     useEffect(() => {
-        const unsubTrans = onSnapshot(collection(db, 'transactions'), (snapshot) => {
-            setTransactions(snapshot.docs.map(doc => doc.data() as Transaction));
-        });
+        if (!authLoading && user) {
+            const unsubTrans = onSnapshot(collection(db, 'transactions'), (snapshot) => {
+                setTransactions(snapshot.docs.map(doc => doc.data() as Transaction));
+            });
 
-        const unsubPerf = onSnapshot(collection(db, 'employeePerformance'), (snapshot) => {
-            setEmployeePerformance(snapshot.docs.map(doc => doc.data() as EmployeePerformance));
-        });
+            const unsubPerf = onSnapshot(collection(db, 'employeePerformance'), (snapshot) => {
+                setEmployeePerformance(snapshot.docs.map(doc => doc.data() as EmployeePerformance));
+            });
 
-        return () => {
-            unsubTrans();
-            unsubPerf();
-        };
-    }, []);
+            return () => {
+                unsubTrans();
+                unsubPerf();
+            };
+        }
+    }, [user, authLoading]);
 
-    const isLoading = !transactions || !employeePerformance;
+    const isLoading = authLoading || !transactions || !employeePerformance;
 
     if (isLoading) {
         return (
@@ -133,6 +137,7 @@ export default function FinanceiroPage() {
                                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">{employee.name}</td>
                                         <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium text-muted-foreground">{employee.income}</td>
                                     </tr>
+                               
                                 ))}
                             </tbody>
                         </table>
