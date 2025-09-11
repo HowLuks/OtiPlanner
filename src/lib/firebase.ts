@@ -5,13 +5,13 @@ import { getAuth } from 'firebase/auth';
 import { initialFuncionarios, initialRoles, initialServices, initialConfirmedAppointments, initialPendingAppointments, initialTransactions, initialEmployeePerformance, initialSaldoEmCaixa } from './data';
 
 const firebaseConfig = {
-  "projectId": "studio-6228903307-46c1c",
-  "appId": "1:564947118922:web:e7bde2fab7767ee7796fb3",
-  "storageBucket": "studio-6228903307-46c1c.firebasestorage.app",
-  "apiKey": "AIzaSyDA2qwwoF7GELvhp4UzGeceTajJJhauYJ8",
-  "authDomain": "studio-6228903307-46c1c.firebaseapp.com",
-  "messagingSenderId": "564947118922",
-  "measurementId": ""
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 
