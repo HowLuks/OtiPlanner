@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Image from "next/image";
@@ -172,6 +172,7 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
 }
 
 export default function FuncionariosPage() {
+  const [isClient, setIsClient] = useState(false);
   const [funcionarios, setFuncionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
   const [roles, setRoles] = useLocalStorage<string[]>('roles', initialRoles);
   
@@ -180,6 +181,10 @@ export default function FuncionariosPage() {
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleAddNewRole = () => {
     if (newRoleName.trim() !== '' && !roles.find(r => r.toLowerCase() === newRoleName.toLowerCase())) {
@@ -191,7 +196,7 @@ export default function FuncionariosPage() {
   const handleAddNewEmployee = () => {
     if (newEmployeeName.trim() && newEmployeeRole) {
       const newEmployee: Funcionario = {
-        id: (funcionarios.length + 1).toString(),
+        id: (funcionarios.length + 1 + Date.now()).toString(),
         name: newEmployeeName.trim(),
         role: roles.find(r => r.toLowerCase() === newEmployeeRole) || '',
         avatarUrl: newEmployeePhoto || "https://picsum.photos/seed/new/112/112",
@@ -328,7 +333,7 @@ export default function FuncionariosPage() {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {funcionarios.map((funcionario) => (
+          {isClient && funcionarios.map((funcionario) => (
             <FuncionarioCard 
               key={funcionario.id}
               funcionario={funcionario}
