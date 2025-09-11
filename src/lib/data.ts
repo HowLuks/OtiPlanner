@@ -33,8 +33,8 @@ export const initialFuncionarios: Funcionario[] = [
       id: "func-1",
       name: "Mariana Silva",
       roleId: "role-2",
-      avatarUrl: "https://picsum.photos/seed/5/112/112",
-      avatarHint: "woman portrait",
+      avatarUrl: findImage('employee-1'),
+      avatarHint: findImageHint('employee-1'),
       salesGoal: 75,
       salesValue: 3750,
       salesTarget: 5000,
@@ -43,8 +43,8 @@ export const initialFuncionarios: Funcionario[] = [
       id: "func-2",
       name: "Lucas Oliveira",
       roleId: "role-1",
-      avatarUrl: "https://picsum.photos/seed/6/112/112",
-      avatarHint: "man portrait",
+      avatarUrl: findImage('employee-2'),
+      avatarHint: findImageHint('employee-2'),
       salesGoal: 50,
       salesValue: 2000,
       salesTarget: 4000,
@@ -53,8 +53,8 @@ export const initialFuncionarios: Funcionario[] = [
       id: "func-3",
       name: "Juliana Santos",
       roleId: "role-3",
-      avatarUrl: "https://picsum.photos/seed/7/112/112",
-      avatarHint: "woman portrait",
+      avatarUrl: findImage('employee-3'),
+      avatarHint: findImageHint('employee-3'),
       salesGoal: 90,
       salesValue: 5400,
       salesTarget: 6000,
@@ -63,53 +63,13 @@ export const initialFuncionarios: Funcionario[] = [
       id: "func-4",
       name: "Camila Pereira",
       roleId: "role-4",
-      avatarUrl: "https://picsum.photos/seed/9/112/112",
-      avatarHint: "woman portrait",
+      avatarUrl: findImage('employee-5'),
+      avatarHint: findImageHint('employee-5'),
       salesGoal: 80,
       salesValue: 3600,
       salesTarget: 4500,
     },
-    {
-      id: 'staff-1',
-      name: 'Carla',
-      avatarUrl: findImage('staff-1'),
-      avatarHint: findImageHint('staff-1'),
-      roleId: 'role-2',
-      salesGoal: 0,
-      salesValue: 0,
-      salesTarget: 4000,
-    },
-    {
-      id: 'staff-2',
-      name: 'Marcos',
-      avatarUrl: findImage('staff-2'),
-      avatarHint: findImageHint('staff-2'),
-      roleId: 'role-1',
-      salesGoal: 0,
-      salesValue: 0,
-      salesTarget: 4000,
-    },
-    {
-      id: 'staff-3',
-      name: 'Beatriz',
-      avatarUrl: findImage('staff-3'),
-      avatarHint: findImageHint('staff-3'),
-      roleId: 'role-3',
-      salesGoal: 0,
-      salesValue: 0,
-      salesTarget: 4000,
-    },
-     {
-      id: 'staff-4',
-      name: 'Camila',
-      roleId: 'role-4',
-      avatarUrl: 'https://picsum.photos/seed/9/112/112',
-      avatarHint: 'woman portrait',
-      salesGoal: 80,
-      salesValue: 3600,
-      salesTarget: 4500,
-    }
-  ];
+];
 
 
 export type Appointment = {
@@ -125,9 +85,9 @@ const today = new Date();
 const todayStr = today.toISOString().split('T')[0];
 
 export const initialConfirmedAppointments: Appointment[] = [
-  { id: 'c1', date: todayStr, time: '10:00', client: 'Ana Silva', serviceId: 's2', staffId: 'staff-1' },
-  { id: 'c2', date: todayStr, time: '14:00', client: 'Carlos Pereira', serviceId: 's5', staffId: 'staff-2' },
-  { id: 'c3', date: todayStr, time: '16:00', client: 'Sofia Mendes', serviceId: 's3', staffId: 'staff-3' },
+  { id: 'c1', date: todayStr, time: '10:00', client: 'Ana Silva', serviceId: 's2', staffId: 'func-1' },
+  { id: 'c2', date: todayStr, time: '14:00', client: 'Carlos Pereira', serviceId: 's5', staffId: 'func-2' },
+  { id: 'c3', date: todayStr, time: '16:00', client: 'Sofia Mendes', serviceId: 's3', staffId: 'func-3' },
 ];
 
 export type PendingAppointment = {

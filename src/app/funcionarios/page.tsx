@@ -66,7 +66,7 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
     const updatedFuncionario = {
         ...funcionario,
         salesTarget: newSalesTarget,
-        salesGoal: funcionario.salesValue > 0 ? Math.round((funcionario.salesValue / newSalesTarget) * 100) : 0,
+        salesGoal: newSalesTarget > 0 ? Math.round((funcionario.salesValue / newSalesTarget) * 100) : 0,
     };
     onUpdate(updatedFuncionario);
     setIsOpen(false);
@@ -204,7 +204,7 @@ export default function FuncionariosPage() {
   const handleAddNewEmployee = () => {
     if (newEmployeeName.trim() && newEmployeeRoleId) {
       const newEmployee: Funcionario = {
-        id: (funcionarios.length + 1 + Date.now()).toString(),
+        id: `func-${funcionarios.length + 1 + Date.now()}`,
         name: newEmployeeName.trim(),
         roleId: newEmployeeRoleId,
         avatarUrl: newEmployeePhoto || "https://picsum.photos/seed/new/112/112",
@@ -242,11 +242,6 @@ export default function FuncionariosPage() {
 
   const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
   
-  const getRoleFromFuncionario = (funcionario: Funcionario) => {
-    const role = roles.find(r => r.id === funcionario.roleId);
-    return role ? role.name : "N/A";
-  }
-
   return (
     <>
       <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">

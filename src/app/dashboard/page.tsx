@@ -69,7 +69,7 @@ export default function DashboardPage() {
           {funcionarios.map((funcionario) => {
             const chartData: DonutChartCell[] = [
               { name: "Completo", value: funcionario.salesValue, color: "hsl(var(--primary))" },
-              { name: "Restante", value: funcionario.salesTarget - funcionario.salesValue, color: "hsl(var(--muted))" },
+              { name: "Restante", value: Math.max(0, funcionario.salesTarget - funcionario.salesValue), color: "hsl(var(--muted))" },
             ];
 
             return (

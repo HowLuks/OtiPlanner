@@ -18,7 +18,7 @@ import { initialServices, initialFuncionarios, Service, Funcionario, Appointment
 
 export default function Home() {
   const [services, setServices] = useLocalStorage<Service[]>('services', initialServices);
-  const [staff, setStaff] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
+  const [funcionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
   const [confirmedAppointments, setConfirmedAppointments] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
   const [pendingAppointments, setPendingAppointments] = useLocalStorage<PendingAppointment[]>('pendingAppointments', initialPendingAppointments);
 
@@ -35,10 +35,10 @@ export default function Home() {
 
   const filteredStaff = useMemo(() => {
     if (!selectedService) {
-      return staff;
+      return funcionarios;
     }
-    return staff.filter(s => s.roleId === selectedService.roleId);
-  }, [staff, selectedService]);
+    return funcionarios.filter(s => s.roleId === selectedService.roleId);
+  }, [funcionarios, selectedService]);
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
   const serviceOptions = services.map(s => ({ value: s.id, label: `${s.name} - R$${s.price}` }));
@@ -238,7 +238,7 @@ export default function Home() {
             confirmedAppointments={confirmedAppointments}
             setConfirmedAppointments={setConfirmedAppointments}
             services={services}
-            staff={staff}
+            staff={funcionarios}
           />
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">
@@ -248,7 +248,7 @@ export default function Home() {
             confirmedAppointments={confirmedAppointments}
             setConfirmedAppointments={setConfirmedAppointments}
             services={services}
-            staff={staff}
+            staff={funcionarios}
           />
         </aside>
       </main>

@@ -41,7 +41,7 @@ function PendingAppointmentCard({
   useEffect(() => {
     // Format date on client to avoid hydration mismatch
     const timeZone = 'UTC';
-    const date = toZonedTime(new Date(appointment.date), timeZone);
+    const date = toZonedTime(new Date(`${appointment.date}T00:00:00`), timeZone);
     setDisplayDate(format(date, 'dd/MM/yyyy'));
   }, [appointment.date]);
 
