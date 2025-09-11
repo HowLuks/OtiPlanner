@@ -201,7 +201,7 @@ export default function FuncionariosPage() {
                     data-ai-hint={funcionario.avatarHint}
                   />
                   {funcionario.online ? (
-                    <CheckCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-green-500 text-background border-2 border-card" />
+                    <CheckCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-green-400 text-background border-2 border-card" />
                   ) : (
                     <XCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-red-500 text-background border-2 border-card" />
                   )}

@@ -1,10 +1,7 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Bell, Plus } from "lucide-react";
 
 export default function FinanceiroPage() {
-    const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
 
     const transactions = [
         { date: '15/07/2024', description: 'Pagamento de cliente - Projeto Web', type: 'Entrada', value: 'R$ 2.500,00', isIncome: true },
@@ -27,7 +24,7 @@ export default function FinanceiroPage() {
                     <div>
                         <h1 className="text-4xl font-bold tracking-tight">Fluxo de Caixa</h1>
                     </div>
-                    <Button className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-gray-900 transition-transform hover:scale-105">
+                    <Button className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-105">
                         <Plus className="mr-2" />
                         <span className="truncate">Nova Transação</span>
                     </Button>
@@ -38,7 +35,7 @@ export default function FinanceiroPage() {
                         <div className="flex flex-col gap-2 rounded-xl bg-card p-6">
                             <p className="text-muted-foreground">Entradas</p>
                             <p className="text-3xl font-bold text-foreground">R$ 12.500,00</p>
-                            <p className="text-green-500 font-medium flex items-center gap-1">
+                            <p className="text-green-400 font-medium flex items-center gap-1">
                                 <span className="material-symbols-outlined text-base"> trending_up </span>
                                 <span>+15%</span>
                             </p>
@@ -71,9 +68,9 @@ export default function FinanceiroPage() {
                                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">{transaction.date}</td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">{transaction.description}</td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm">
-                                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${transaction.isIncome ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>{transaction.type}</span>
+                                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${transaction.isIncome ? 'bg-primary/20 text-primary' : 'bg-red-900/50 text-red-400'}`}>{transaction.type}</span>
                                         </td>
-                                        <td className={`whitespace-nowrap px-6 py-4 text-right text-sm font-medium ${transaction.isIncome ? 'text-green-500' : 'text-red-500'}`}>{transaction.value}</td>
+                                        <td className={`whitespace-nowrap px-6 py-4 text-right text-sm font-medium ${transaction.isIncome ? 'text-primary' : 'text-red-500'}`}>{transaction.value}</td>
                                     </tr>
                                 ))}
                             </tbody>

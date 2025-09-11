@@ -54,7 +54,7 @@ function PendingAppointmentCard({ appointment, onAction }: { appointment: Pendin
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-full hover:bg-green-500/20 text-green-400 hover:text-green-300"
+          className="rounded-full hover:bg-primary/20 text-primary hover:text-primary"
           onClick={() => handleAction('accept')}
           disabled={isPending}
         >
