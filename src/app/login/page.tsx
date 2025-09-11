@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, AuthError } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, AuthError } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ export default function LoginPage() {
         break;
       case 'auth/user-not-found':
       case 'auth/wrong-password':
+      case 'auth/invalid-credential':
         description = 'E-mail ou senha incorretos.';
         break;
       case 'auth/email-already-in-use':
@@ -57,7 +58,7 @@ export default function LoginPage() {
         title: 'Sucesso!',
         description: 'Conta criada. Redirecionando para o dashboard...',
       });
-      router.push('/dashboard');
+      // The redirect is handled by the layout component
     } catch (error) {
       handleAuthError(error as AuthError);
     } finally {
@@ -73,7 +74,7 @@ export default function LoginPage() {
         title: 'Login bem-sucedido!',
         description: 'Redirecionando para o dashboard...',
       });
-      router.push('/dashboard');
+      // The redirect is handled by the layout component
     } catch (error) {
       handleAuthError(error as AuthError);
     } finally {
