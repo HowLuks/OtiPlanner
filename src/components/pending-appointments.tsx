@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { Clock, Check, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ function PendingAppointmentCard({
   staff,
 }: { 
   appointment: PendingAppointment;
-  onConfirm: (appointment: Appointment) => void;
+  onConfirm: (appointmentId: string, newConfirmedAppointment: Appointment) => void;
   onReject: (id: string) => void;
   services: Service[];
   staff: Staff[];
@@ -57,7 +57,7 @@ function PendingAppointmentCard({
             service: services.find(s => s.id === selectedServiceId)?.name || 'N/A',
             staffId: selectedStaffId,
           };
-          onConfirm(newConfirmedAppointment);
+          onConfirm(appointment.id, newConfirmedAppointment);
           setIsOpen(false);
           toast({
             title: `Agendamento Aceito`,
@@ -196,10 +196,15 @@ export function PendingAppointments({
   services: Service[];
   staff: Staff[];
 }) {
-  
-  const handleConfirm = (newConfirmedAppointment: Appointment) => {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const handleConfirm = (pendingAppointmentId: string, newConfirmedAppointment: Appointment) => {
     setConfirmedAppointments(current => [...current, newConfirmedAppointment]);
-    setPendingAppointments(current => current.filter(app => app.id !== newConfirmedAppointment.id.replace('c', 'p')));
+    setPendingAppointments(current => current.filter(app => app.id !== pendingAppointmentId));
   };
 
   const handleReject = (appointmentId: string) => {
@@ -213,7 +218,7 @@ export function PendingAppointments({
         <CardTitle className="font-headline text-2xl font-bold">Agendamentos Pendentes</CardTitle>
       </CardHeader>
       <CardContent>
-        {pendingAppointments.length > 0 ? (
+        {isClient && pendingAppointments.length > 0 ? (
           <div className="space-y-4">
             {pendingAppointments.map((appointment) => (
               <PendingAppointmentCard 
