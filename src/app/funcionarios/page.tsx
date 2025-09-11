@@ -17,14 +17,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { initialRoles, initialFuncionarios, Funcionario } from "@/lib/data";
+import { initialRoles, initialFuncionarios, Funcionario, Role } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
 import useLocalStorage from '@/lib/storage';
 
 
 interface FuncionarioCardProps {
   funcionario: Funcionario;
-  roles: string[];
+  roles: Role[];
   roleOptions: { label: string; value: string }[];
   onUpdate: (updatedFuncionario: Funcionario) => void;
   onDelete: (id: string) => void;
@@ -34,13 +34,17 @@ interface FuncionarioCardProps {
 function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, onPhotoUpload }: FuncionarioCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editEmployeeName, setEditEmployeeName] = useState(funcionario.name);
-  const [editEmployeeRole, setEditEmployeeRole] = useState(funcionario.role.toLowerCase());
+  const [editEmployeeRoleId, setEditEmployeeRoleId] = useState(funcionario.roleId);
   const [editEmployeePhoto, setEditEmployeePhoto] = useState<string | null>(funcionario.avatarUrl);
   const [editSalesTarget, setEditSalesTarget] = useState<number | ''>(funcionario.salesTarget);
+  
+  const getRoleName = (roleId: string) => {
+    return roles.find(role => role.id === roleId)?.name || 'N/A';
+  }
 
   const handleOpen = () => {
     setEditEmployeeName(funcionario.name);
-    setEditEmployeeRole(funcionario.role.toLowerCase());
+    setEditEmployeeRoleId(funcionario.roleId);
     setEditEmployeePhoto(funcionario.avatarUrl);
     setEditSalesTarget(funcionario.salesTarget);
     setIsOpen(true);
@@ -50,7 +54,7 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
     const updatedFuncionario = {
       ...funcionario,
       name: editEmployeeName.trim(),
-      role: roles.find(r => r.toLowerCase() === editEmployeeRole) || funcionario.role,
+      roleId: editEmployeeRoleId,
       avatarUrl: editEmployeePhoto || funcionario.avatarUrl,
     };
     onUpdate(updatedFuncionario);
@@ -81,7 +85,7 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
         />
       </div>
       <h3 className="font-bold text-lg">{funcionario.name}</h3>
-      <p className="text-sm text-muted-foreground">{funcionario.role}</p>
+      <p className="text-sm text-muted-foreground">{getRoleName(funcionario.roleId)}</p>
       <div className="w-full mt-5">
         <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
           <span>Meta de Vendas</span>
@@ -148,8 +152,8 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
                     <Label htmlFor="role-select">Função</Label>
                     <Combobox
                       options={roleOptions}
-                      value={editEmployeeRole}
-                      onChange={setEditEmployeeRole}
+                      value={editEmployeeRoleId}
+                      onChange={setEditEmployeeRoleId}
                       placeholder="Selecione a função"
                       searchPlaceholder="Buscar função..."
                       emptyText="Nenhuma função encontrada."
@@ -174,9 +178,9 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
 export default function FuncionariosPage() {
   const [isClient, setIsClient] = useState(false);
   const [funcionarios, setFuncionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
-  const [roles, setRoles] = useLocalStorage<string[]>('roles', initialRoles);
+  const [roles, setRoles] = useLocalStorage<Role[]>('roles', initialRoles);
   
-  const [newEmployeeRole, setNewEmployeeRole] = useState('');
+  const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
@@ -187,18 +191,22 @@ export default function FuncionariosPage() {
   }, []);
 
   const handleAddNewRole = () => {
-    if (newRoleName.trim() !== '' && !roles.find(r => r.toLowerCase() === newRoleName.toLowerCase())) {
-      setRoles([...roles, newRoleName.trim()]);
+    if (newRoleName.trim() !== '' && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
+        const newRole: Role = {
+            id: `role-${roles.length + 1 + Date.now()}`,
+            name: newRoleName.trim(),
+        };
+      setRoles([...roles, newRole]);
       setNewRoleName('');
     }
   };
 
   const handleAddNewEmployee = () => {
-    if (newEmployeeName.trim() && newEmployeeRole) {
+    if (newEmployeeName.trim() && newEmployeeRoleId) {
       const newEmployee: Funcionario = {
         id: (funcionarios.length + 1 + Date.now()).toString(),
         name: newEmployeeName.trim(),
-        role: roles.find(r => r.toLowerCase() === newEmployeeRole) || '',
+        roleId: newEmployeeRoleId,
         avatarUrl: newEmployeePhoto || "https://picsum.photos/seed/new/112/112",
         avatarHint: 'person portrait',
         salesGoal: 0,
@@ -207,7 +215,7 @@ export default function FuncionariosPage() {
       };
       setFuncionarios([...funcionarios, newEmployee]);
       setNewEmployeeName('');
-      setNewEmployeeRole('');
+      setNewEmployeeRoleId('');
       setNewEmployeePhoto(null);
       setNewEmployeeSalesTarget(2000);
     }
@@ -232,8 +240,13 @@ export default function FuncionariosPage() {
     }
   };
 
-  const roleOptions = roles.map(role => ({ value: role.toLowerCase(), label: role }));
+  const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
   
+  const getRoleFromFuncionario = (funcionario: Funcionario) => {
+    const role = roles.find(r => r.id === funcionario.roleId);
+    return role ? role.name : "N/A";
+  }
+
   return (
     <>
       <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
@@ -305,8 +318,8 @@ export default function FuncionariosPage() {
                     <Label htmlFor="new-role-select">Função</Label>
                      <Combobox
                         options={roleOptions}
-                        value={newEmployeeRole}
-                        onChange={setNewEmployeeRole}
+                        value={newEmployeeRoleId}
+                        onChange={setNewEmployeeRoleId}
                         placeholder="Selecione a função"
                         searchPlaceholder="Buscar função..."
                         emptyText="Nenhuma função encontrada."

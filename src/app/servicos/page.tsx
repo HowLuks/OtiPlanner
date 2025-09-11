@@ -12,7 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { initialServices, initialRoles, Service } from "@/lib/data";
+import { initialServices, initialRoles, Service, Role } from "@/lib/data";
 import {
   Dialog,
   DialogContent,
@@ -29,31 +29,35 @@ import useLocalStorage from "@/lib/storage";
 
 export default function ServicosPage() {
   const [services, setServices] = useLocalStorage<Service[]>('services', initialServices);
-  const [roles] = useLocalStorage<string[]>('roles', initialRoles);
-  const [selectedRole, setSelectedRole] = useState('');
+  const [roles] = useLocalStorage<Role[]>('roles', initialRoles);
+  const [selectedRoleId, setSelectedRoleId] = useState('');
 
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState<number | ''>('');
   const [newServiceDuration, setNewServiceDuration] = useState<number | ''>(30);
 
   const handleAddNewService = () => {
-    if (newServiceName.trim() && newServicePrice && newServiceDuration && selectedRole) {
+    if (newServiceName.trim() && newServicePrice && newServiceDuration && selectedRoleId) {
       const newService: Service = {
         id: `s${services.length + 1 + Date.now()}`,
         name: newServiceName.trim(),
         price: Number(newServicePrice),
-        role: roles.find(r => r.toLowerCase() === selectedRole) || '',
+        roleId: selectedRoleId,
         duration: Number(newServiceDuration),
       };
       setServices([...services, newService]);
       setNewServiceName('');
       setNewServicePrice('');
       setNewServiceDuration(30);
-      setSelectedRole('');
+      setSelectedRoleId('');
     }
   };
 
-  const roleOptions = roles.map(role => ({ value: role.toLowerCase(), label: role }));
+  const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
+
+  const getRoleName = (roleId: string) => {
+    return roles.find(role => role.id === roleId)?.name || 'N/A';
+  }
 
   return (
     <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
@@ -89,8 +93,8 @@ export default function ServicosPage() {
                   <Label htmlFor="role-select">Função</Label>
                   <Combobox
                     options={roleOptions}
-                    value={selectedRole}
-                    onChange={setSelectedRole}
+                    value={selectedRoleId}
+                    onChange={setSelectedRoleId}
                     placeholder="Selecione a função"
                     searchPlaceholder="Buscar função..."
                     emptyText="Nenhuma função encontrada."
@@ -124,7 +128,7 @@ export default function ServicosPage() {
               {services.map((service) => (
                 <TableRow key={service.id}>
                   <TableCell className="font-medium">{service.name}</TableCell>
-                  <TableCell>{service.role}</TableCell>
+                  <TableCell>{getRoleName(service.roleId)}</TableCell>
                   <TableCell>{service.duration} min</TableCell>
                   <TableCell className="text-right">
                     {service.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -138,5 +142,3 @@ export default function ServicosPage() {
     </main>
   );
 }
-
-    

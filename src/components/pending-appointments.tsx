@@ -36,14 +36,16 @@ function PendingAppointmentCard({
   
   useEffect(() => {
     // Format date on client to avoid hydration mismatch
-    setDisplayDate(format(toZonedTime(new Date(appointment.date), 'UTC'), 'dd/MM/yyyy'));
+    const timeZone = 'UTC';
+    const date = toZonedTime(new Date(appointment.date), timeZone);
+    setDisplayDate(format(date, 'dd/MM/yyyy'));
   }, [appointment.date]);
 
   const filteredStaff = useMemo(() => {
-    if (!appointment.service || !appointment.service.role) {
+    if (!appointment.service || !appointment.service.roleId) {
       return [];
     }
-    return staff.filter(s => s.role === appointment.service.role);
+    return staff.filter(s => s.roleId === appointment.service.roleId);
   }, [staff, appointment.service]);
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));

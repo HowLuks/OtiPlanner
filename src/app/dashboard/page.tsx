@@ -7,12 +7,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DollarSign, TrendingUp, Users } from "lucide-react";
 import Image from "next/image";
 import useLocalStorage from "@/lib/storage";
-import { initialFuncionarios, initialSaldoEmCaixa, Funcionario } from "@/lib/data";
+import { initialFuncionarios, initialSaldoEmCaixa, Funcionario, initialRoles, Role } from "@/lib/data";
 
 export default function DashboardPage() {
     const [funcionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
     const [saldoEmCaixa] = useLocalStorage<number>('saldoEmCaixa', initialSaldoEmCaixa);
+    const [roles] = useLocalStorage<Role[]>('roles', initialRoles);
 
+    const getRoleName = (roleId: string) => {
+        return roles.find(role => role.id === roleId)?.name || 'N/A';
+    }
 
     const totalSalesValue = funcionarios.reduce((acc, func) => acc + func.salesValue, 0);
     const totalSalesTarget = funcionarios.reduce((acc, func) => acc + func.salesTarget, 0);
@@ -89,7 +93,7 @@ export default function DashboardPage() {
                     <AvatarFallback>{funcionario.name.substring(0, 2)}</AvatarFallback>
                   </Avatar>
                   <h4 className="text-lg font-semibold">{funcionario.name}</h4>
-                  <p className="text-sm text-muted-foreground">{funcionario.role}</p>
+                  <p className="text-sm text-muted-foreground">{getRoleName(funcionario.roleId)}</p>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
                   R$ {funcionario.salesValue.toLocaleString('pt-BR')} / R$ {funcionario.salesTarget.toLocaleString('pt-BR')}

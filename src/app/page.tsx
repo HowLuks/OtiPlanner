@@ -37,7 +37,7 @@ export default function Home() {
     if (!selectedService) {
       return staff;
     }
-    return staff.filter(s => s.role === selectedService.role);
+    return staff.filter(s => s.roleId === selectedService.roleId);
   }, [staff, selectedService]);
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
