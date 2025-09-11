@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -12,7 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { initialServices, initialRoles, Service, Role } from "@/lib/data";
+import { Service, Role } from "@/lib/data";
 import {
   Dialog,
   DialogContent,
@@ -24,27 +24,50 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
-import useLocalStorage from "@/lib/storage";
+import { Skeleton } from "@/components/ui/skeleton";
+import { db } from '@/lib/firebase';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 
 
 export default function ServicosPage() {
-  const [services, setServices] = useLocalStorage<Service[]>('services', initialServices);
-  const [roles] = useLocalStorage<Role[]>('roles', initialRoles);
+  const [services, setServices] = useState<Service[] | null>(null);
+  const [roles, setRoles] = useState<Role[] | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState('');
 
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState<number | ''>('');
   const [newServiceDuration, setNewServiceDuration] = useState<number | ''>(30);
 
-  const handleAddNewService = () => {
-    if (newServiceName.trim() && newServicePrice && newServiceDuration && selectedRoleId) {
+  useEffect(() => {
+    const fetchData = async () => {
+        try {
+            const servicesCollection = collection(db, 'services');
+            const servicesSnapshot = await getDocs(servicesCollection);
+            setServices(servicesSnapshot.docs.map(doc => doc.data() as Service));
+
+            const rolesCollection = collection(db, 'roles');
+            const rolesSnapshot = await getDocs(rolesCollection);
+            setRoles(rolesSnapshot.docs.map(doc => doc.data() as Role));
+        } catch (error) {
+            console.error("Error fetching data from Firestore:", error);
+        }
+    };
+
+    fetchData();
+  }, []);
+
+
+  const handleAddNewService = async () => {
+    if (newServiceName.trim() && newServicePrice && newServiceDuration && selectedRoleId && services && roles) {
+      const newServiceId = `s${services.length + 1 + Date.now()}`;
       const newService: Service = {
-        id: `s${services.length + 1 + Date.now()}`,
+        id: newServiceId,
         name: newServiceName.trim(),
         price: Number(newServicePrice),
         roleId: selectedRoleId,
         duration: Number(newServiceDuration),
       };
+      await setDoc(doc(db, 'services', newServiceId), newService);
       setServices([...services, newService]);
       setNewServiceName('');
       setNewServicePrice('');
@@ -53,10 +76,33 @@ export default function ServicosPage() {
     }
   };
 
-  const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
+  const roleOptions = roles ? roles.map(role => ({ value: role.id, label: role.name })) : [];
 
   const getRoleName = (roleId: string) => {
+    if (!roles) return '';
     return roles.find(role => role.id === roleId)?.name || 'N/A';
+  }
+
+  if (!services || !roles) {
+      return (
+          <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
+                  <Skeleton className="h-9 w-48" />
+                  <Skeleton className="h-10 w-36 mt-4 md:mt-0" />
+              </div>
+              <Card>
+                  <CardHeader>
+                      <Skeleton className="h-8 w-64" />
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                  </CardContent>
+              </Card>
+          </main>
+      )
   }
 
   return (

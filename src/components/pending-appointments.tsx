@@ -13,6 +13,9 @@ import { Combobox } from '@/components/ui/combobox';
 import { useToast } from "@/hooks/use-toast";
 import { acceptRejectAppointment } from '@/ai/flows/accept-reject-appointments';
 import { PendingAppointment, Appointment, Service, Funcionario } from '@/lib/data';
+import { db } from '@/lib/firebase';
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+
 
 function PendingAppointmentCard({ 
   appointment,
@@ -253,6 +256,7 @@ export function PendingAppointments({
   services,
   staff,
   updateStaffSales,
+  refetchAppointments
 }: { 
   pendingAppointments: PendingAppointment[];
   setPendingAppointments: (value: PendingAppointment[] | ((val: PendingAppointment[]) => PendingAppointment[])) => void;
@@ -261,15 +265,19 @@ export function PendingAppointments({
   services: Service[];
   staff: Funcionario[];
   updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
+  refetchAppointments: () => Promise<void>;
 }) {
 
-  const handleConfirm = (pendingAppointmentId: string, newConfirmedAppointment: Appointment) => {
-    setConfirmedAppointments(current => [...current, newConfirmedAppointment].sort((a, b) => a.time.localeCompare(b.time)));
-    setPendingAppointments(current => current.filter(app => app.id !== pendingAppointmentId));
+  const handleConfirm = async (pendingAppointmentId: string, newConfirmedAppointment: Appointment) => {
+    // Add to confirmed and remove from pending
+    await setDoc(doc(db, 'confirmedAppointments', newConfirmedAppointment.id), newConfirmedAppointment);
+    await deleteDoc(doc(db, 'pendingAppointments', pendingAppointmentId));
+    await refetchAppointments();
   };
 
-  const handleReject = (appointmentId: string) => {
-    setPendingAppointments(current => current.filter(app => app.id !== appointmentId));
+  const handleReject = async (appointmentId: string) => {
+    await deleteDoc(doc(db, 'pendingAppointments', appointmentId));
+    await refetchAppointments();
   };
 
   return (

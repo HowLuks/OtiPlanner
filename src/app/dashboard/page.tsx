@@ -1,21 +1,55 @@
 'use client'
 
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { DonutChart, DonutChartCell } from "@/components/donut-chart";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DollarSign, TrendingUp, Users } from "lucide-react";
 import Image from "next/image";
-import { initialFuncionarios, initialSaldoEmCaixa, Funcionario, initialRoles, Role } from "@/lib/data";
+import { Funcionario, Role } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
-import useSyncedStore from "@/hooks/use-synced-store";
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function DashboardPage() {
-    const funcionarios = useSyncedStore<Funcionario[]>('funcionarios', initialFuncionarios);
-    const saldoEmCaixa = useSyncedStore<number>('saldoEmCaixa', initialSaldoEmCaixa);
-    const roles = useSyncedStore<Role[]>('roles', initialRoles);
+    const [funcionarios, setFuncionarios] = useState<Funcionario[] | null>(null);
+    const [saldoEmCaixa, setSaldoEmCaixa] = useState<number | null>(null);
+    const [roles, setRoles] = useState<Role[] | null>(null);
 
-    if (!funcionarios || !saldoEmCaixa || !roles) {
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // Fetch Funcionarios
+                const funcCollection = collection(db, 'funcionarios');
+                const funcSnapshot = await getDocs(funcCollection);
+                setFuncionarios(funcSnapshot.docs.map(doc => doc.data() as Funcionario));
+
+                // Fetch Roles
+                const rolesCollection = collection(db, 'roles');
+                const rolesSnapshot = await getDocs(rolesCollection);
+                setRoles(rolesSnapshot.docs.map(doc => doc.data() as Role));
+
+                // Fetch Saldo
+                const saldoDoc = await getDoc(doc(db, 'appState', 'saldoEmCaixa'));
+                if (saldoDoc.exists()) {
+                    setSaldoEmCaixa(saldoDoc.data().value);
+                }
+
+            } catch (error) {
+                console.error("Error fetching data from Firestore:", error);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    const getRoleName = (roleId: string) => {
+        if (!roles) return 'Carregando...';
+        return roles.find(role => role.id === roleId)?.name || 'N/A';
+    }
+
+    if (!funcionarios || saldoEmCaixa === null || !roles) {
         return (
           <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
@@ -39,10 +73,6 @@ export default function DashboardPage() {
         );
     }
     
-    const getRoleName = (roleId: string) => {
-        return roles.find(role => role.id === roleId)?.name || 'N/A';
-    }
-
     const totalSalesValue = funcionarios.reduce((acc, func) => acc + func.salesValue, 0);
     const totalSalesTarget = funcionarios.reduce((acc, func) => acc + func.salesTarget, 0);
     const totalSalesProgress = totalSalesTarget > 0 ? (totalSalesValue / totalSalesTarget) * 100 : 0;
@@ -96,6 +126,7 @@ export default function DashboardPage() {
               { name: "Completo", value: funcionario.salesValue, color: "hsl(var(--primary))" },
               { name: "Restante", value: Math.max(0, funcionario.salesTarget - funcionario.salesValue), color: "hsl(var(--muted))" },
             ];
+            const roleName = getRoleName(funcionario.roleId);
 
             return (
               <Card key={funcionario.id} className="flex flex-col items-center justify-center p-6 text-center">
@@ -118,7 +149,7 @@ export default function DashboardPage() {
                     <AvatarFallback>{funcionario.name.substring(0, 2)}</AvatarFallback>
                   </Avatar>
                   <h4 className="text-lg font-semibold">{funcionario.name}</h4>
-                  <p className="text-sm text-muted-foreground">{getRoleName(funcionario.roleId)}</p>
+                  <p className="text-sm text-muted-foreground">{roleName}</p>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
                   R$ {funcionario.salesValue.toLocaleString('pt-BR')} / R$ {funcionario.salesTarget.toLocaleString('pt-BR')}

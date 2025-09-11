@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Image from "next/image";
@@ -16,11 +16,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { initialRoles, initialFuncionarios, Funcionario, Role } from "@/lib/data";
+import { Funcionario, Role } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
-import useSyncedStore from '@/hooks/use-synced-store';
-
+import { db } from '@/lib/firebase';
+import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 
 interface FuncionarioCardProps {
   funcionario: Funcionario;
@@ -172,8 +172,8 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
 }
 
 export default function FuncionariosPage() {
-  const funcionarios = useSyncedStore<Funcionario[]>('funcionarios', initialFuncionarios);
-  const roles = useSyncedStore<Role[]>('roles', initialRoles);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[] | null>(null);
+  const [roles, setRoles] = useState<Role[] | null>(null);
 
   const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
@@ -181,17 +181,32 @@ export default function FuncionariosPage() {
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
 
-  const setFuncionarios = (updater: Funcionario[] | ((current: Funcionario[]) => Funcionario[])) => {
-    const newValue = typeof updater === 'function' ? updater(funcionarios || []) : updater;
-    localStorage.setItem('funcionarios', JSON.stringify(newValue));
-    // This is a hack to trigger re-render, ideally use context or a proper state manager
-    window.dispatchEvent(new Event('storage'));
-  };
+   useEffect(() => {
+    const fetchData = async () => {
+        try {
+            const funcCollection = collection(db, 'funcionarios');
+            const funcSnapshot = await getDocs(funcCollection);
+            setFuncionarios(funcSnapshot.docs.map(doc => doc.data() as Funcionario));
 
-  const setRoles = (updater: Role[] | ((current: Role[]) => Role[])) => {
-    const newValue = typeof updater === 'function' ? updater(roles || []) : updater;
-    localStorage.setItem('roles', JSON.stringify(newValue));
-    window.dispatchEvent(new Event('storage'));
+            const rolesCollection = collection(db, 'roles');
+            const rolesSnapshot = await getDocs(rolesCollection);
+            setRoles(rolesSnapshot.docs.map(doc => doc.data() as Role));
+        } catch (error) {
+            console.error("Error fetching data from Firestore:", error);
+        }
+    };
+
+    fetchData();
+  }, []);
+
+  const refetchData = async () => {
+    const funcCollection = collection(db, 'funcionarios');
+    const funcSnapshot = await getDocs(funcCollection);
+    setFuncionarios(funcSnapshot.docs.map(doc => doc.data() as Funcionario));
+
+    const rolesCollection = collection(db, 'roles');
+    const rolesSnapshot = await getDocs(rolesCollection);
+    setRoles(rolesSnapshot.docs.map(doc => doc.data() as Role));
   };
 
 
@@ -218,32 +233,36 @@ export default function FuncionariosPage() {
   const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
 
   const getRoleName = (roleId: string) => {
-    return roles.find(role => role.id === roleId)?.name || 'aqui deve mostrar a função e não N/A';
+    return roles.find(role => role.id === roleId)?.name || 'Função não encontrada';
   }
 
-  const handleAddNewRole = () => {
+  const handleAddNewRole = async () => {
     if (newRoleName.trim() !== '' && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
+        const newRoleId = `role-${roles.length + 1 + Date.now()}`;
         const newRole: Role = {
-            id: `role-${roles.length + 1 + Date.now()}`,
+            id: newRoleId,
             name: newRoleName.trim(),
         };
+      await setDoc(doc(db, 'roles', newRoleId), newRole);
       setRoles([...roles, newRole]);
       setNewRoleName('');
     }
   };
 
-  const handleAddNewEmployee = () => {
+  const handleAddNewEmployee = async () => {
     if (newEmployeeName.trim() && newEmployeeRoleId) {
+      const newEmployeeId = `func-${funcionarios.length + 1 + Date.now()}`;
       const newEmployee: Funcionario = {
-        id: `func-${funcionarios.length + 1 + Date.now()}`,
+        id: newEmployeeId,
         name: newEmployeeName.trim(),
         roleId: newEmployeeRoleId,
-        avatarUrl: newEmployeePhoto || "https://picsum.photos/seed/new/112/112",
+        avatarUrl: newEmployeePhoto || `https://picsum.photos/seed/${newEmployeeId}/112/112`,
         avatarHint: 'person portrait',
         salesGoal: 0,
         salesValue: 0,
         salesTarget: Number(newEmployeeSalesTarget) || 2000,
       };
+      await setDoc(doc(db, 'funcionarios', newEmployeeId), newEmployee);
       setFuncionarios([...funcionarios, newEmployee]);
       setNewEmployeeName('');
       setNewEmployeeRoleId('');
@@ -252,11 +271,14 @@ export default function FuncionariosPage() {
     }
   };
 
-  const handleUpdateFuncionario = (updatedFuncionario: Funcionario) => {
+  const handleUpdateFuncionario = async (updatedFuncionario: Funcionario) => {
+    const funcDocRef = doc(db, "funcionarios", updatedFuncionario.id);
+    await setDoc(funcDocRef, updatedFuncionario, { merge: true });
     setFuncionarios(funcionarios.map(f => f.id === updatedFuncionario.id ? updatedFuncionario : f));
   };
 
-  const handleDeleteEmployee = (id: string) => {
+  const handleDeleteEmployee = async (id: string) => {
+    await deleteDoc(doc(db, "funcionarios", id));
     setFuncionarios(funcionarios.filter(f => f.id !== id));
   };
   

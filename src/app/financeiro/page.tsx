@@ -1,16 +1,61 @@
 'use client'
 
+import { useState, useEffect } from 'react';
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import useLocalStorage from "@/lib/storage";
-import { initialTransactions, initialEmployeePerformance, Transaction, EmployeePerformance } from "@/lib/data";
+import { Transaction, EmployeePerformance } from "@/lib/data";
+import { Skeleton } from '@/components/ui/skeleton';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function FinanceiroPage() {
-    const [transactions, setTransactions, transactionsInitialized] = useLocalStorage<Transaction[]>('transactions', initialTransactions);
-    const [employeePerformance, setEmployeePerformance, employeePerformanceInitialized] = useLocalStorage<EmployeePerformance[]>('employeePerformance', initialEmployeePerformance);
+    const [transactions, setTransactions] = useState<Transaction[] | null>(null);
+    const [employeePerformance, setEmployeePerformance] = useState<EmployeePerformance[] | null>(null);
 
-    if (!transactionsInitialized || !employeePerformanceInitialized) {
-        return null; // ou um componente de loading
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const transCollection = collection(db, 'transactions');
+                const transSnapshot = await getDocs(transCollection);
+                setTransactions(transSnapshot.docs.map(doc => doc.data() as Transaction));
+
+                const perfCollection = collection(db, 'employeePerformance');
+                const perfSnapshot = await getDocs(perfCollection);
+                setEmployeePerformance(perfSnapshot.docs.map(doc => doc.data() as EmployeePerformance));
+            } catch (error) {
+                 console.error("Error fetching data from Firestore:", error);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    if (!transactions || !employeePerformance) {
+        return (
+             <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
+                <div className="mx-auto max-w-7xl">
+                    <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+                        <Skeleton className="h-12 w-64" />
+                        <Skeleton className="h-12 w-40" />
+                    </div>
+                    <div className="mb-8">
+                        <Skeleton className="h-8 w-48 mb-4" />
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                            <Skeleton className="h-32 rounded-xl" />
+                            <Skeleton className="h-32 rounded-xl" />
+                        </div>
+                    </div>
+                    <div className="mb-8">
+                        <Skeleton className="h-8 w-48 mb-4" />
+                        <Skeleton className="h-64 rounded-xl" />
+                    </div>
+                    <div>
+                        <Skeleton className="h-8 w-64 mb-4" />
+                        <Skeleton className="h-48 rounded-xl" />
+                    </div>
+                </div>
+            </main>
+        )
     }
 
     return (

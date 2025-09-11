@@ -14,16 +14,20 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
-import useLocalStorage from '@/lib/storage';
-import { initialServices, initialFuncionarios, Service, Funcionario, Appointment, PendingAppointment, initialConfirmedAppointments, initialPendingAppointments, Role, initialRoles } from '@/lib/data';
+import { Service, Funcionario, Appointment, PendingAppointment, Role } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
+import { db, seedDatabase } from '@/lib/firebase';
+import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+
 
 export default function Home() {
-  const [services, setServices, servicesInitialized] = useLocalStorage<Service[]>('services', initialServices);
-  const [roles, setRoles, rolesInitialized] = useLocalStorage<Role[]>('roles', initialRoles);
-  const [funcionarios, setFuncionarios, funcionariosInitialized] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
-  const [confirmedAppointments, setConfirmedAppointments, confirmedInitialized] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
-  const [pendingAppointments, setPendingAppointments, pendingInitialized] = useLocalStorage<PendingAppointment[]>('pendingAppointments', initialPendingAppointments);
+  const [services, setServices] = useState<Service[] | null>(null);
+  const [roles, setRoles] = useState<Role[] | null>(null);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[] | null>(null);
+  const [confirmedAppointments, setConfirmedAppointments] = useState<Appointment[] | null>(null);
+  const [pendingAppointments, setPendingAppointments] = useState<PendingAppointment[] | null>(null);
+  
+  const [isLoading, setIsLoading] = useState(true);
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [clientName, setClientName] = useState('');
@@ -34,29 +38,85 @@ export default function Home() {
   const [appointmentStatus, setAppointmentStatus] = useState<'confirmed' | 'pending'>('pending');
   const [conflictError, setConflictError] = useState('');
   
-  const isInitialized = servicesInitialized && rolesInitialized && funcionariosInitialized && confirmedInitialized && pendingInitialized;
+  useEffect(() => {
+      const fetchData = async () => {
+          setIsLoading(true);
+          try {
+              // Seed data if necessary, then fetch
+              await seedDatabase();
+
+              const collections = {
+                  services: collection(db, 'services'),
+                  roles: collection(db, 'roles'),
+                  funcionarios: collection(db, 'funcionarios'),
+                  confirmedAppointments: collection(db, 'confirmedAppointments'),
+                  pendingAppointments: collection(db, 'pendingAppointments'),
+              };
+
+              const [
+                  servicesSnap,
+                  rolesSnap,
+                  funcionariosSnap,
+                  confirmedSnap,
+                  pendingSnap,
+              ] = await Promise.all([
+                  getDocs(collections.services),
+                  getDocs(collections.roles),
+                  getDocs(collections.funcionarios),
+                  getDocs(collections.confirmedAppointments),
+                  getDocs(collections.pendingAppointments),
+              ]);
+
+              setServices(servicesSnap.docs.map(doc => doc.data() as Service));
+              setRoles(rolesSnap.docs.map(doc => doc.data() as Role));
+              setFuncionarios(funcionariosSnap.docs.map(doc => doc.data() as Funcionario));
+              setConfirmedAppointments(confirmedSnap.docs.map(doc => doc.data() as Appointment));
+              setPendingAppointments(pendingSnap.docs.map(doc => doc.data() as PendingAppointment));
+
+          } catch (error) {
+              console.error("Error fetching data from Firestore:", error);
+          } finally {
+              setIsLoading(false);
+          }
+      };
+
+      fetchData();
+  }, []);
+
+  const refetchAppointments = async () => {
+      const confirmedSnap = await getDocs(collection(db, 'confirmedAppointments'));
+      setConfirmedAppointments(confirmedSnap.docs.map(doc => doc.data() as Appointment));
+      
+      const pendingSnap = await getDocs(collection(db, 'pendingAppointments'));
+      setPendingAppointments(pendingSnap.docs.map(doc => doc.data() as PendingAppointment));
+  }
+
+  const refetchFuncionarios = async () => {
+      const funcionariosSnap = await getDocs(collection(db, 'funcionarios'));
+      setFuncionarios(funcionariosSnap.docs.map(doc => doc.data() as Funcionario));
+  }
 
   const selectedService = useMemo(() => {
-      if (!isInitialized) return undefined;
+      if (!services) return undefined;
       return services.find(s => s.id === selectedServiceId)
-    }, [services, selectedServiceId, isInitialized]);
+    }, [services, selectedServiceId]);
 
   const filteredStaff = useMemo(() => {
-    if (!isInitialized || !selectedService) {
-      return funcionarios;
+    if (!funcionarios || !selectedService) {
+      return [];
     }
     return funcionarios.filter(s => s.roleId === selectedService.roleId);
-  }, [funcionarios, selectedService, isInitialized]);
+  }, [funcionarios, selectedService]);
 
   const staffOptions = useMemo(() => {
-    if (!isInitialized) return [];
+    if (!filteredStaff) return [];
     return filteredStaff.map(s => ({ value: s.id, label: s.name }));
-  }, [filteredStaff, isInitialized]);
+  }, [filteredStaff]);
 
   const serviceOptions = useMemo(() => {
-    if (!isInitialized) return [];
+    if (!services) return [];
     return services.map(s => ({ value: s.id, label: `${s.name} - R$${s.price}` }));
-  }, [services, isInitialized]);
+  }, [services]);
 
   const resetForm = () => {
     setClientName('');
@@ -69,6 +129,7 @@ export default function Home() {
   };
 
   const checkForConflict = (staffId: string, date: string, time: string): boolean => {
+    if (!services || !confirmedAppointments) return false;
     const serviceForNewApp = services.find(s => s.id === selectedServiceId);
     if (!serviceForNewApp) return false;
 
@@ -90,29 +151,28 @@ export default function Home() {
     });
   };
 
-  const updateStaffSales = (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
+  const updateStaffSales = async (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
+    if(!services || !funcionarios) return;
     const service = services.find(s => s.id === serviceId);
-    if (!service) return;
+    const func = funcionarios.find(f => f.id === staffId);
+    if (!service || !func) return;
 
-    setFuncionarios(prevFuncionarios => 
-      prevFuncionarios.map(func => {
-        if (func.id === staffId) {
-          const newSalesValue = operation === 'add' 
-            ? func.salesValue + service.price 
-            : func.salesValue - service.price;
-          
-          const newSalesGoal = func.salesTarget > 0 
-            ? Math.round((newSalesValue / func.salesTarget) * 100)
-            : 0;
+    const newSalesValue = operation === 'add' 
+        ? func.salesValue + service.price 
+        : func.salesValue - service.price;
+    
+    const newSalesGoal = func.salesTarget > 0 
+        ? Math.round((newSalesValue / func.salesTarget) * 100)
+        : 0;
 
-          return { ...func, salesValue: newSalesValue, salesGoal: newSalesGoal };
-        }
-        return func;
-      })
-    );
+    const updatedFunc = { ...func, salesValue: newSalesValue, salesGoal: newSalesGoal };
+    
+    const funcDocRef = doc(db, 'funcionarios', staffId);
+    await setDoc(funcDocRef, updatedFunc, { merge: true });
+    await refetchFuncionarios();
   };
 
-  const handleCreateAppointment = () => {
+  const handleCreateAppointment = async () => {
     if (!clientName || !appointmentTime || !selectedServiceId || !appointmentDate) {
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
@@ -129,28 +189,32 @@ export default function Home() {
         setConflictError('Este profissional já possui um agendamento conflitante neste horário.');
         return;
       }
-
+      
+      const newId = `c${(confirmedAppointments?.length || 0) + Date.now()}`;
       const newConfirmedAppointment: Appointment = {
-        id: `c${confirmedAppointments.length + Date.now()}`,
+        id: newId,
         date: appointmentDate,
         client: clientName,
         time: appointmentTime,
         serviceId: selectedServiceId,
         staffId: selectedStaffId,
       };
-      setConfirmedAppointments(prev => [...prev, newConfirmedAppointment]);
-      updateStaffSales(selectedStaffId, selectedServiceId, 'add');
+      await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
+      await updateStaffSales(selectedStaffId, selectedServiceId, 'add');
+
     } else {
+      const newId = `p${(pendingAppointments?.length || 0) + Date.now()}`;
       const newPendingAppointment: PendingAppointment = {
-        id: `p${pendingAppointments.length + Date.now()}`,
+        id: newId,
         date: appointmentDate,
         client: clientName,
         time: appointmentTime,
         serviceId: selectedServiceId,
       };
-      setPendingAppointments(prev => [...prev, newPendingAppointment]);
+      await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
     }
 
+    await refetchAppointments();
     resetForm();
     // This is a bit of a hack to make DialogClose work with the conditional error
     if (!conflictError) {
@@ -159,7 +223,7 @@ export default function Home() {
   };
   
   useEffect(() => {
-    if (selectedService && !filteredStaff.find(s => s.id === selectedStaffId)) {
+    if (selectedService && filteredStaff && !filteredStaff.find(s => s.id === selectedStaffId)) {
       setSelectedStaffId('');
     }
   }, [selectedService, filteredStaff, selectedStaffId]);
@@ -274,40 +338,72 @@ export default function Home() {
             </Dialog>
           </div>
           <CalendarView selectedDate={selectedDate} onDateChange={setSelectedDate} />
-          {isInitialized ? (
-            <ConfirmedAppointments 
-              selectedDate={selectedDate}
-              confirmedAppointments={confirmedAppointments}
-              setConfirmedAppointments={setConfirmedAppointments}
-              services={services}
-              staff={funcionarios}
-              updateStaffSales={updateStaffSales}
-            />
-          ) : (
+          {isLoading ? (
             <div className="mt-8 space-y-4">
               <Skeleton className="h-8 w-1/3" />
               <Skeleton className="h-40 w-full" />
             </div>
+          ) : (
+            <ConfirmedAppointments 
+              selectedDate={selectedDate}
+              confirmedAppointments={confirmedAppointments || []}
+              setConfirmedAppointments={async (apps) => {
+                  const newApps = typeof apps === 'function' ? apps(confirmedAppointments || []) : apps;
+                  const batch = writeBatch(db);
+                  // This is a simplified update. A real app would handle deletions and additions more granularly.
+                  const currentIds = (confirmedAppointments || []).map(a => a.id);
+                  const newIds = newApps.map(a => a.id);
+                  const toDelete = currentIds.filter(id => !newIds.includes(id));
+                  
+                  toDelete.forEach(id => batch.delete(doc(db, 'confirmedAppointments', id)));
+                  newApps.forEach(app => batch.set(doc(db, 'confirmedAppointments', app.id), app));
+
+                  await batch.commit();
+                  await refetchAppointments();
+              }}
+              services={services || []}
+              staff={funcionarios || []}
+              updateStaffSales={updateStaffSales}
+            />
           )}
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">
-          {isInitialized ? (
-             <PendingAppointments
-                pendingAppointments={pendingAppointments}
-                setPendingAppointments={setPendingAppointments}
-                confirmedAppointments={confirmedAppointments}
-                setConfirmedAppointments={setConfirmedAppointments}
-                services={services}
-                staff={funcionarios}
-                updateStaffSales={updateStaffSales}
-            />
-          ) : (
+          {isLoading ? (
              <div className="space-y-4">
               <Skeleton className="h-8 w-1/2" />
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />
             </div>
+          ) : (
+             <PendingAppointments
+                pendingAppointments={pendingAppointments || []}
+                setPendingAppointments={async (apps) => {
+                     const newApps = typeof apps === 'function' ? apps(pendingAppointments || []) : apps;
+                      const batch = writeBatch(db);
+                      const currentIds = (pendingAppointments || []).map(a => a.id);
+                      const newIds = newApps.map(a => a.id);
+                      const toDelete = currentIds.filter(id => !newIds.includes(id));
+                      
+                      toDelete.forEach(id => batch.delete(doc(db, 'pendingAppointments', id)));
+                      newApps.forEach(app => batch.set(doc(db, 'pendingAppointments', app.id), app));
+
+                      await batch.commit();
+                      await refetchAppointments();
+                }}
+                confirmedAppointments={confirmedAppointments || []}
+                setConfirmedAppointments={async (apps) => {
+                  const newApps = typeof apps === 'function' ? apps(confirmedAppointments || []) : apps;
+                  const batch = writeBatch(db);
+                  newApps.forEach(app => batch.set(doc(db, 'confirmedAppointments', app.id), app));
+                  await batch.commit();
+                  await refetchAppointments();
+                }}
+                services={services || []}
+                staff={funcionarios || []}
+                updateStaffSales={updateStaffSales}
+                refetchAppointments={refetchAppointments}
+            />
           )}
         </aside>
       </main>
