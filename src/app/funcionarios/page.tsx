@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -20,31 +21,166 @@ import { initialRoles, initialFuncionarios, Funcionario } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
 import useLocalStorage from '@/lib/storage';
 
+
+interface FuncionarioCardProps {
+  funcionario: Funcionario;
+  roles: string[];
+  roleOptions: { label: string; value: string }[];
+  onUpdate: (updatedFuncionario: Funcionario) => void;
+  onDelete: (id: string) => void;
+  onPhotoUpload: (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => void;
+}
+
+function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, onPhotoUpload }: FuncionarioCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [editEmployeeName, setEditEmployeeName] = useState(funcionario.name);
+  const [editEmployeeRole, setEditEmployeeRole] = useState(funcionario.role.toLowerCase());
+  const [editEmployeePhoto, setEditEmployeePhoto] = useState<string | null>(funcionario.avatarUrl);
+  const [editSalesTarget, setEditSalesTarget] = useState<number | ''>(funcionario.salesTarget);
+
+  const handleOpen = () => {
+    setEditEmployeeName(funcionario.name);
+    setEditEmployeeRole(funcionario.role.toLowerCase());
+    setEditEmployeePhoto(funcionario.avatarUrl);
+    setEditSalesTarget(funcionario.salesTarget);
+    setIsOpen(true);
+  };
+
+  const handleUpdateEmployee = () => {
+    const updatedFuncionario = {
+      ...funcionario,
+      name: editEmployeeName.trim(),
+      role: roles.find(r => r.toLowerCase() === editEmployeeRole) || funcionario.role,
+      avatarUrl: editEmployeePhoto || funcionario.avatarUrl,
+    };
+    onUpdate(updatedFuncionario);
+    setIsOpen(false);
+  };
+  
+  const handleUpdateSalesTarget = () => {
+    const newSalesTarget = Number(editSalesTarget) || 0;
+    const updatedFuncionario = {
+        ...funcionario,
+        salesTarget: newSalesTarget,
+        salesGoal: funcionario.salesValue > 0 ? Math.round((funcionario.salesValue / newSalesTarget) * 100) : 0,
+    };
+    onUpdate(updatedFuncionario);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="bg-card rounded-xl p-5 flex flex-col items-center text-center transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/10">
+      <div className="relative mb-4">
+        <Image
+          alt={funcionario.name}
+          className="w-28 h-28 rounded-full object-cover ring-4 ring-background group-hover:ring-primary transition-all"
+          src={funcionario.avatarUrl}
+          width={112}
+          height={112}
+          data-ai-hint={funcionario.avatarHint}
+        />
+      </div>
+      <h3 className="font-bold text-lg">{funcionario.name}</h3>
+      <p className="text-sm text-muted-foreground">{funcionario.role}</p>
+      <div className="w-full mt-5">
+        <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
+          <span>Meta de Vendas</span>
+          <span className="font-semibold text-primary">{funcionario.salesGoal}%</span>
+        </div>
+        <Progress value={funcionario.salesGoal} className="h-2" />
+        <p className="text-xs text-muted-foreground mt-1">
+          R$ {funcionario.salesValue.toLocaleString('pt-BR')} / R$ {funcionario.salesTarget.toLocaleString('pt-BR')}
+        </p>
+      </div>
+      <div className="mt-5 flex gap-2">
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-primary" onClick={handleOpen}>
+              <Edit className="text-xl" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Editar Funcionário</DialogTitle>
+            </DialogHeader>
+            <Tabs defaultValue="edit-employee">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="change-goal">Alterar Meta</TabsTrigger>
+                <TabsTrigger value="edit-employee">Editar Funcionário</TabsTrigger>
+              </TabsList>
+              <TabsContent value="change-goal">
+                <div className="p-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="salesTarget">Nova Meta de Vendas</Label>
+                    <Input
+                      id="salesTarget"
+                      type="number"
+                      placeholder={`R$ ${funcionario.salesTarget.toLocaleString('pt-BR')}`}
+                      value={editSalesTarget}
+                      onChange={(e) => setEditSalesTarget(e.target.value === '' ? '' : Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="flex justify-end pt-4">
+                    <Button onClick={handleUpdateSalesTarget}>Salvar Meta</Button>
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="edit-employee">
+                <div className="space-y-4 p-4">
+                  <div className="space-y-2">
+                    <Label>Foto</Label>
+                    <div className="flex items-center gap-4">
+                      {editEmployeePhoto && <Image src={editEmployeePhoto} alt={funcionario.name} width={64} height={64} className="rounded-full" />}
+                      <Button variant="outline" size="sm" asChild>
+                        <label htmlFor="photo-upload" className="cursor-pointer">
+                          <Upload className="mr-2 h-4 w-4" />
+                          Alterar foto
+                          <input id="photo-upload" type="file" accept="image/*" className="sr-only" onChange={e => onPhotoUpload(e, setEditEmployeePhoto)} />
+                        </label>
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input id="name" value={editEmployeeName} onChange={e => setEditEmployeeName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role-select">Função</Label>
+                    <Combobox
+                      options={roleOptions}
+                      value={editEmployeeRole}
+                      onChange={setEditEmployeeRole}
+                      placeholder="Selecione a função"
+                      searchPlaceholder="Buscar função..."
+                      emptyText="Nenhuma função encontrada."
+                    />
+                  </div>
+                  <div className="flex justify-end pt-4">
+                    <Button onClick={handleUpdateEmployee}>Salvar Alterações</Button>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </DialogContent>
+        </Dialog>
+        <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => onDelete(funcionario.id)}>
+          <Trash className="text-xl" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export default function FuncionariosPage() {
   const [funcionarios, setFuncionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
   const [roles, setRoles] = useLocalStorage<string[]>('roles', initialRoles);
   
-  const [selectedFuncionario, setSelectedFuncionario] = useState<Funcionario | null>(null);
   const [newEmployeeRole, setNewEmployeeRole] = useState('');
-  const [editEmployeeRole, setEditEmployeeRole] = useState('');
-
   const [newRoleName, setNewRoleName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
-  const [editEmployeeName, setEditEmployeeName] = useState('');
-  const [editEmployeePhoto, setEditEmployeePhoto] = useState<string | null>(null);
-  const [editSalesTarget, setEditSalesTarget] = useState<number | ''>('');
 
-
-  const handleEditClick = (funcionario: Funcionario) => {
-    setSelectedFuncionario(funcionario);
-    setEditEmployeeRole(funcionario.role.toLowerCase());
-    setEditEmployeeName(funcionario.name);
-    setEditEmployeePhoto(funcionario.avatarUrl);
-    setEditSalesTarget(funcionario.salesTarget);
-  };
-  
   const handleAddNewRole = () => {
     if (newRoleName.trim() !== '' && !roles.find(r => r.toLowerCase() === newRoleName.toLowerCase())) {
       setRoles([...roles, newRoleName.trim()]);
@@ -72,39 +208,12 @@ export default function FuncionariosPage() {
     }
   };
 
-  const handleUpdateEmployee = () => {
-    if (selectedFuncionario && editEmployeeName.trim() && editEmployeeRole) {
-      setFuncionarios(funcionarios.map(f =>
-        f.id === selectedFuncionario.id
-          ? {
-              ...f,
-              name: editEmployeeName.trim(),
-              role: roles.find(r => r.toLowerCase() === editEmployeeRole) || f.role,
-              avatarUrl: editEmployeePhoto || f.avatarUrl,
-            }
-          : f
-      ));
-      setSelectedFuncionario(null);
-    }
+  const handleUpdateFuncionario = (updatedFuncionario: Funcionario) => {
+    setFuncionarios(funcionarios.map(f => f.id === updatedFuncionario.id ? updatedFuncionario : f));
   };
 
   const handleDeleteEmployee = (id: string) => {
     setFuncionarios(funcionarios.filter(f => f.id !== id));
-  };
-  
-  const handleUpdateSalesTarget = () => {
-     if (selectedFuncionario && editSalesTarget) {
-      setFuncionarios(funcionarios.map(f =>
-        f.id === selectedFuncionario.id
-          ? {
-              ...f,
-              salesTarget: Number(editSalesTarget),
-              salesGoal: f.salesValue > 0 ? Math.round((f.salesValue / Number(editSalesTarget)) * 100) : 0,
-            }
-          : f
-      ));
-      setSelectedFuncionario(null);
-    }
   };
   
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, setPhoto: (url: string) => void) => {
@@ -117,7 +226,6 @@ export default function FuncionariosPage() {
       reader.readAsDataURL(file);
     }
   };
-
 
   const roleOptions = roles.map(role => ({ value: role.toLowerCase(), label: role }));
   
@@ -221,111 +329,15 @@ export default function FuncionariosPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {funcionarios.map((funcionario) => (
-            <div key={funcionario.id} className="bg-card rounded-xl p-5 flex flex-col items-center text-center transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/10">
-              <div className="relative mb-4">
-                <Image
-                  alt={funcionario.name}
-                  className="w-28 h-28 rounded-full object-cover ring-4 ring-background group-hover:ring-primary transition-all"
-                  src={funcionario.avatarUrl}
-                  width={112}
-                  height={112}
-                  data-ai-hint={funcionario.avatarHint}
-                />
-              </div>
-              <h3 className="font-bold text-lg">{funcionario.name}</h3>
-              <p className="text-sm text-muted-foreground">{funcionario.role}</p>
-              <div className="w-full mt-5">
-                <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
-                  <span>Meta de Vendas</span>
-                  <span className="font-semibold text-primary">{funcionario.salesGoal}%</span>
-                </div>
-                <Progress value={funcionario.salesGoal} className="h-2" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  R$ {funcionario.salesValue.toLocaleString('pt-BR')} / R$ {funcionario.salesTarget.toLocaleString('pt-BR')}
-                </p>
-              </div>
-              <div className="mt-5 flex gap-2">
-                <Dialog onOpenChange={(open) => !open && setSelectedFuncionario(null)}>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-primary" onClick={() => handleEditClick(funcionario)}>
-                      <Edit className="text-xl" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Editar Funcionário</DialogTitle>
-                    </DialogHeader>
-                    {selectedFuncionario && selectedFuncionario.id === funcionario.id && (
-                      <Tabs defaultValue="edit-employee">
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="change-goal">Alterar Meta</TabsTrigger>
-                          <TabsTrigger value="edit-employee">Editar Funcionário</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="change-goal">
-                          <div className="p-4 space-y-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="salesTarget">Nova Meta de Vendas</Label>
-                              <Input
-                                id="salesTarget"
-                                type="number"
-                                placeholder={`R$ ${selectedFuncionario.salesTarget.toLocaleString('pt-BR')}`}
-                                value={editSalesTarget}
-                                onChange={(e) => setEditSalesTarget(e.target.value === '' ? '' : Number(e.target.value))}
-                              />
-                            </div>
-                            <div className="flex justify-end pt-4">
-                              <DialogClose asChild>
-                                <Button onClick={handleUpdateSalesTarget}>Salvar Meta</Button>
-                              </DialogClose>
-                            </div>
-                          </div>
-                        </TabsContent>
-                        <TabsContent value="edit-employee">
-                          <div className="space-y-4 p-4">
-                            <div className="space-y-2">
-                              <Label>Foto</Label>
-                              <div className="flex items-center gap-4">
-                                <Image src={editEmployeePhoto || selectedFuncionario.avatarUrl} alt={selectedFuncionario.name} width={64} height={64} className="rounded-full" />
-                                <Button variant="outline" size="sm" asChild>
-                                  <label htmlFor="photo-upload" className="cursor-pointer">
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Alterar foto
-                                    <input id="photo-upload" type="file" accept="image/*" className="sr-only" onChange={e => handlePhotoUpload(e, setEditEmployeePhoto)} />
-                                  </label>
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="name">Nome</Label>
-                              <Input id="name" value={editEmployeeName} onChange={e => setEditEmployeeName(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="role-select">Função</Label>
-                              <Combobox
-                                options={roleOptions}
-                                value={editEmployeeRole}
-                                onChange={setEditEmployeeRole}
-                                placeholder="Selecione a função"
-                                searchPlaceholder="Buscar função..."
-                                emptyText="Nenhuma função encontrada."
-                              />
-                            </div>
-                            <div className="flex justify-end pt-4">
-                              <DialogClose asChild>
-                                <Button onClick={handleUpdateEmployee}>Salvar Alterações</Button>
-                              </DialogClose>
-                            </div>
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                    )}
-                  </DialogContent>
-                </Dialog>
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => handleDeleteEmployee(funcionario.id)}>
-                  <Trash className="text-xl" />
-                </Button>
-              </div>
-            </div>
+            <FuncionarioCard 
+              key={funcionario.id}
+              funcionario={funcionario}
+              roles={roles}
+              roleOptions={roleOptions}
+              onUpdate={handleUpdateFuncionario}
+              onDelete={handleDeleteEmployee}
+              onPhotoUpload={handlePhotoUpload}
+            />
           ))}
         </div>
       </main>
