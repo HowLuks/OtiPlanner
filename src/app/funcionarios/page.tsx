@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Image from "next/image";
@@ -39,9 +39,10 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
   const [editEmployeePhoto, setEditEmployeePhoto] = useState<string | null>(funcionario.avatarUrl);
   const [editSalesTarget, setEditSalesTarget] = useState<number | ''>(funcionario.salesTarget);
   
-  const getRoleName = (roleId: string) => {
-    return roles.find(role => role.id === roleId)?.name || 'N/A';
-  }
+  const roleName = useMemo(() => {
+    if (!roles) return 'Carregando...';
+    return roles.find(role => role.id === funcionario.roleId)?.name || 'N/A';
+  }, [roles, funcionario.roleId]);
 
   const handleOpen = () => {
     setEditEmployeeName(funcionario.name);
@@ -86,7 +87,7 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
         />
       </div>
       <h3 className="font-bold text-lg">{funcionario.name}</h3>
-      <p className="text-sm text-muted-foreground">{getRoleName(funcionario.roleId)}</p>
+      <p className="text-sm text-muted-foreground">{roleName}</p>
       <div className="w-full mt-5">
         <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
           <span>Meta de Vendas</span>
