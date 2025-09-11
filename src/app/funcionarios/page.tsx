@@ -29,10 +29,7 @@ type Funcionario = {
 };
 
 export default function FuncionariosPage() {
-  const [selectedFuncionario, setSelectedFuncionario] = useState<Funcionario | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const funcionarios: Funcionario[] = [
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([
     {
       id: "1",
       name: "Mariana Silva",
@@ -88,12 +85,7 @@ export default function FuncionariosPage() {
       salesTarget: 4500,
       online: true,
     },
-  ];
-
-  const handleEditClick = (funcionario: Funcionario) => {
-    setSelectedFuncionario(funcionario);
-    setIsDialogOpen(true);
-  };
+  ]);
 
   return (
     <>
@@ -110,97 +102,94 @@ export default function FuncionariosPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {funcionarios.map((funcionario) => (
-            <div key={funcionario.id} className="bg-card rounded-xl p-5 flex flex-col items-center text-center transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/10">
-              <div className="relative mb-4">
-                <Image
-                  alt={funcionario.name}
-                  className="w-28 h-28 rounded-full object-cover ring-4 ring-background group-hover:ring-primary transition-all"
-                  src={funcionario.avatarUrl}
-                  width={112}
-                  height={112}
-                  data-ai-hint={funcionario.avatarHint}
-                />
-                {funcionario.online ? (
-                  <CheckCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-green-500 text-background border-2 border-card" />
-                ) : (
-                  <XCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-red-500 text-background border-2 border-card" />
-                )}
-              </div>
-              <h3 className="font-bold text-lg">{funcionario.name}</h3>
-              <p className="text-sm text-muted-foreground">{funcionario.role}</p>
-              <div className="w-full mt-5">
-                <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
-                  <span>Meta de Vendas</span>
-                  <span className="font-semibold text-primary">{funcionario.salesGoal}%</span>
+            <Dialog key={funcionario.id}>
+              <div className="bg-card rounded-xl p-5 flex flex-col items-center text-center transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/10">
+                <div className="relative mb-4">
+                  <Image
+                    alt={funcionario.name}
+                    className="w-28 h-28 rounded-full object-cover ring-4 ring-background group-hover:ring-primary transition-all"
+                    src={funcionario.avatarUrl}
+                    width={112}
+                    height={112}
+                    data-ai-hint={funcionario.avatarHint}
+                  />
+                  {funcionario.online ? (
+                    <CheckCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-green-500 text-background border-2 border-card" />
+                  ) : (
+                    <XCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-red-500 text-background border-2 border-card" />
+                  )}
                 </div>
-                <Progress value={funcionario.salesGoal} className="h-2" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  R$ {funcionario.salesValue.toLocaleString('pt-BR')} / R$ {funcionario.salesTarget.toLocaleString('pt-BR')}
-                </p>
-              </div>
-              <div className="mt-5 flex gap-2">
-                <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-primary" onClick={() => handleEditClick(funcionario)}>
-                        <Edit className="text-xl" />
+                <h3 className="font-bold text-lg">{funcionario.name}</h3>
+                <p className="text-sm text-muted-foreground">{funcionario.role}</p>
+                <div className="w-full mt-5">
+                  <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
+                    <span>Meta de Vendas</span>
+                    <span className="font-semibold text-primary">{funcionario.salesGoal}%</span>
+                  </div>
+                  <Progress value={funcionario.salesGoal} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    R$ {funcionario.salesValue.toLocaleString('pt-BR')} / R$ {funcionario.salesTarget.toLocaleString('pt-BR')}
+                  </p>
+                </div>
+                <div className="mt-5 flex gap-2">
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-primary">
+                      <Edit className="text-xl" />
                     </Button>
-                </DialogTrigger>
-                <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive">
-                  <Trash className="text-xl" />
-                </Button>
+                  </DialogTrigger>
+                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive">
+                    <Trash className="text-xl" />
+                  </Button>
+                </div>
               </div>
-            </div>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Editar Funcionário</DialogTitle>
+                </DialogHeader>
+                <Tabs defaultValue="edit-employee">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="change-goal">Alterar Meta</TabsTrigger>
+                    <TabsTrigger value="edit-employee">Editar Funcionário</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="change-goal">
+                    <div className="p-4">
+                      <p>Conteúdo para alterar meta aqui.</p>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="edit-employee">
+                    <div className="space-y-4 p-4">
+                      <div className="space-y-2">
+                        <Label>Foto</Label>
+                        <div className="flex items-center gap-4">
+                          <Image src={funcionario.avatarUrl} alt={funcionario.name} width={64} height={64} className="rounded-full" />
+                          <Button variant="outline" size="sm" asChild>
+                            <label htmlFor="photo-upload" className="cursor-pointer">
+                              <Upload className="mr-2 h-4 w-4" />
+                              Alterar foto
+                              <input id="photo-upload" type="file" className="sr-only" />
+                            </label>
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Nome</Label>
+                        <Input id="name" defaultValue={funcionario.name} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="role">Função</Label>
+                        <Input id="role" defaultValue={funcionario.role} />
+                      </div>
+                      <div className="flex justify-end pt-4">
+                        <Button>Salvar Alterações</Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </DialogContent>
+            </Dialog>
           ))}
         </div>
       </main>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Editar Funcionário</DialogTitle>
-          </DialogHeader>
-          {selectedFuncionario && (
-             <Tabs defaultValue="edit-employee">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="change-goal">Alterar Meta</TabsTrigger>
-                    <TabsTrigger value="edit-employee">Editar Funcionário</TabsTrigger>
-                </TabsList>
-                <TabsContent value="change-goal">
-                    <div className="p-4">
-                        <p>Conteúdo para alterar meta aqui.</p>
-                    </div>
-                </TabsContent>
-                <TabsContent value="edit-employee">
-                    <div className="space-y-4 p-4">
-                        <div className="space-y-2">
-                            <Label>Foto</Label>
-                            <div className="flex items-center gap-4">
-                                <Image src={selectedFuncionario.avatarUrl} alt={selectedFuncionario.name} width={64} height={64} className="rounded-full" />
-                                <Button variant="outline" size="sm" asChild>
-                                  <label htmlFor="photo-upload" className="cursor-pointer">
-                                      <Upload className="mr-2 h-4 w-4" />
-                                      Alterar foto
-                                      <input id="photo-upload" type="file" className="sr-only" />
-                                  </label>
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Nome</Label>
-                            <Input id="name" defaultValue={selectedFuncionario.name} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="role">Função</Label>
-                            <Input id="role" defaultValue={selectedFuncionario.role} />
-                        </div>
-                         <div className="flex justify-end pt-4">
-                          <Button>Salvar Alterações</Button>
-                        </div>
-                    </div>
-                </TabsContent>
-            </Tabs>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
