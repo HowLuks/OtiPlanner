@@ -21,6 +21,7 @@ function PendingAppointmentCard({
   onReject,
   staff,
   services,
+  updateStaffSales,
 }: { 
   appointment: PendingAppointment;
   confirmedAppointments: Appointment[];
@@ -28,6 +29,7 @@ function PendingAppointmentCard({
   onReject: (id: string) => void;
   staff: Funcionario[];
   services: Service[];
+  updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -103,6 +105,7 @@ function PendingAppointmentCard({
             staffId: selectedStaffId,
           };
           onConfirm(appointment.id, newConfirmedAppointment);
+          updateStaffSales(selectedStaffId, appointment.serviceId, 'add');
           setIsOpen(false);
           toast({
             title: `Agendamento Aceito`,
@@ -248,7 +251,8 @@ export function PendingAppointments({
   confirmedAppointments,
   setConfirmedAppointments,
   services,
-  staff
+  staff,
+  updateStaffSales,
 }: { 
   pendingAppointments: PendingAppointment[];
   setPendingAppointments: (value: PendingAppointment[] | ((val: PendingAppointment[]) => PendingAppointment[])) => void;
@@ -256,6 +260,7 @@ export function PendingAppointments({
   setConfirmedAppointments: (value: Appointment[] | ((val: Appointment[]) => Appointment[])) => void;
   services: Service[];
   staff: Funcionario[];
+  updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
 }) {
 
   const handleConfirm = (pendingAppointmentId: string, newConfirmedAppointment: Appointment) => {
@@ -284,6 +289,7 @@ export function PendingAppointments({
                 onReject={handleReject}
                 staff={staff}
                 services={services}
+                updateStaffSales={updateStaffSales}
               />
             ))}
           </div>

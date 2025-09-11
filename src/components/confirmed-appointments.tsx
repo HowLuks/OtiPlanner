@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Edit, Trash } from "lucide-react";
 import { Funcionario, Appointment, Service } from "@/lib/data";
 
 interface ConfirmedAppointmentsProps {
@@ -20,9 +22,18 @@ interface ConfirmedAppointmentsProps {
   setConfirmedAppointments: (value: Appointment[] | ((val: Appointment[]) => Appointment[])) => void;
   staff: Funcionario[];
   services: Service[];
+  updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
 }
 
-export function ConfirmedAppointments({ selectedDate, confirmedAppointments, staff, services }: ConfirmedAppointmentsProps) {
+export function ConfirmedAppointments({ 
+  selectedDate, 
+  confirmedAppointments,
+  setConfirmedAppointments, 
+  staff, 
+  services,
+  updateStaffSales,
+}: ConfirmedAppointmentsProps) {
+
   const getStaffMember = (staffId: string): Funcionario | undefined => {
     return staff.find(s => s.id === staffId);
   };
@@ -41,6 +52,11 @@ export function ConfirmedAppointments({ selectedDate, confirmedAppointments, sta
       .sort((a, b) => a.time.localeCompare(b.time));
   }, [confirmedAppointments, selectedDate]);
 
+  const handleDelete = (appointmentToDelete: Appointment) => {
+    setConfirmedAppointments(prev => prev.filter(app => app.id !== appointmentToDelete.id));
+    updateStaffSales(appointmentToDelete.staffId, appointmentToDelete.serviceId, 'subtract');
+  };
+
   return (
     <div className="mt-8">
       <h3 className="text-2xl font-bold mb-4 font-headline">Agendamentos Confirmados</h3>
@@ -53,6 +69,7 @@ export function ConfirmedAppointments({ selectedDate, confirmedAppointments, sta
                 <TableHead className="px-6 py-4 font-medium text-sm">Cliente</TableHead>
                 <TableHead className="px-6 py-4 font-medium text-sm">Serviço</TableHead>
                 <TableHead className="px-6 py-4 font-medium text-sm">Funcionário</TableHead>
+                <TableHead className="px-6 py-4 font-medium text-sm text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -67,18 +84,28 @@ export function ConfirmedAppointments({ selectedDate, confirmedAppointments, sta
                       <TableCell className="px-6 py-4 text-sm text-muted-foreground">{service?.name || 'Serviço não encontrado'}</TableCell>
                       <TableCell className="px-6 py-4">
                         {staffMember && (
-                           <Avatar className="h-10 w-10">
-                              <AvatarImage src={staffMember.avatarUrl} alt={staffMember.name} data-ai-hint={staffMember.avatarHint} />
-                              <AvatarFallback>{staffMember.name.charAt(0)}</AvatarFallback>
-                          </Avatar>
+                           <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                  <AvatarImage src={staffMember.avatarUrl} alt={staffMember.name} data-ai-hint={staffMember.avatarHint} />
+                                  <AvatarFallback>{staffMember.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                           </div>
                         )}
                       </TableCell>
+                       <TableCell className="px-6 py-4 text-right">
+                          <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-primary">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => handleDelete(appointment)}>
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                       Nenhum agendamento para esta data.
                     </TableCell>
                   </TableRow>

@@ -14,11 +14,12 @@ import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
 import useLocalStorage from '@/lib/storage';
-import { initialServices, initialFuncionarios, Service, Funcionario, Appointment, PendingAppointment, initialConfirmedAppointments, initialPendingAppointments } from '@/lib/data';
+import { initialServices, initialFuncionarios, Service, Funcionario, Appointment, PendingAppointment, initialConfirmedAppointments, initialPendingAppointments, Role, initialRoles } from '@/lib/data';
 
 export default function Home() {
-  const [services, setServices] = useLocalStorage<Service[]>('services', initialServices);
-  const [funcionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
+  const [services] = useLocalStorage<Service[]>('services', initialServices);
+  const [roles] = useLocalStorage<Role[]>('roles', initialRoles);
+  const [funcionarios, setFuncionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
   const [confirmedAppointments, setConfirmedAppointments] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
   const [pendingAppointments, setPendingAppointments] = useLocalStorage<PendingAppointment[]>('pendingAppointments', initialPendingAppointments);
 
@@ -74,6 +75,28 @@ export default function Home() {
     });
   };
 
+  const updateStaffSales = (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
+    const service = services.find(s => s.id === serviceId);
+    if (!service) return;
+
+    setFuncionarios(prevFuncionarios => 
+      prevFuncionarios.map(func => {
+        if (func.id === staffId) {
+          const newSalesValue = operation === 'add' 
+            ? func.salesValue + service.price 
+            : func.salesValue - service.price;
+          
+          const newSalesGoal = func.salesTarget > 0 
+            ? Math.round((newSalesValue / func.salesTarget) * 100)
+            : 0;
+
+          return { ...func, salesValue: newSalesValue, salesGoal: newSalesGoal };
+        }
+        return func;
+      })
+    );
+  };
+
   const handleCreateAppointment = () => {
     if (!clientName || !appointmentTime || !selectedServiceId || !appointmentDate) {
       alert('Por favor, preencha todos os campos obrigatórios.');
@@ -101,6 +124,7 @@ export default function Home() {
         staffId: selectedStaffId,
       };
       setConfirmedAppointments(prev => [...prev, newConfirmedAppointment]);
+      updateStaffSales(selectedStaffId, selectedServiceId, 'add');
     } else {
       const newPendingAppointment: PendingAppointment = {
         id: `p${pendingAppointments.length + Date.now()}`,
@@ -126,7 +150,9 @@ export default function Home() {
   }, [selectedService, filteredStaff, selectedStaffId]);
 
   useEffect(() => {
-    setAppointmentDate(format(selectedDate || new Date(), 'yyyy-MM-dd'));
+    if(selectedDate) {
+      setAppointmentDate(format(selectedDate, 'yyyy-MM-dd'));
+    }
   }, [selectedDate]);
 
 
@@ -239,6 +265,7 @@ export default function Home() {
             setConfirmedAppointments={setConfirmedAppointments}
             services={services}
             staff={funcionarios}
+            updateStaffSales={updateStaffSales}
           />
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">
@@ -249,6 +276,7 @@ export default function Home() {
             setConfirmedAppointments={setConfirmedAppointments}
             services={services}
             staff={funcionarios}
+            updateStaffSales={updateStaffSales}
           />
         </aside>
       </main>
