@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect, useMemo } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import { format } from 'date-fns';
 import { Clock, Check, X } from 'lucide-react';
 
@@ -42,14 +42,14 @@ function PendingAppointmentCard({
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
   const checkForConflict = (staffId: string, date: string, time: string, duration: number): boolean => {
-    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
+    const newAppointmentStart = new Date(`${date}T${time}:00`).getTime();
     const newAppointmentEnd = newAppointmentStart + duration * 60 * 1000;
 
     return confirmedAppointments.some(existing => {
       if (existing.staffId !== staffId || existing.date !== date) {
         return false;
       }
-      const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
+      const existingStart = new Date(`${existing.date}T${existing.time}:00`).getTime();
       const existingEnd = existingStart + existing.duration * 60 * 1000;
       
       return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
@@ -167,20 +167,20 @@ function PendingAppointmentCard({
             <DialogHeader>
               <DialogTitle>Confirmar Agendamento</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4 grid-cols-2">
+             <div className="grid grid-cols-2 gap-4 py-4">
                <div className="space-y-1">
                   <Label>Cliente</Label>
-                  <p>{appointment.client}</p>
+                  <p className="text-sm">{appointment.client}</p>
               </div>
               <div className="space-y-1">
                   <Label>Data</Label>
-                  <p>{format(new Date(`${appointment.date}T00:00:00`), 'dd/MM/yyyy')} - {appointment.time}</p>
+                  <p className="text-sm">{format(new Date(`${appointment.date}T00:00:00`), 'dd/MM/yyyy')} - {appointment.time}</p>
               </div>
               <div className="space-y-1 col-span-2">
                   <Label>Serviço</Label>
-                  <p>{appointment.service.name}</p>
+                  <p className="text-sm">{appointment.service.name}</p>
               </div>
-              <div className="space-y-1 col-span-2">
+              <div className="space-y-2 col-span-2">
                 <Label htmlFor="staff">Profissional</Label>
                 <Combobox
                   options={staffOptions}
@@ -223,21 +223,14 @@ export function PendingAppointments({
   setPendingAppointments,
   confirmedAppointments,
   setConfirmedAppointments,
-  services,
   staff
 }: { 
   pendingAppointments: PendingAppointment[];
   setPendingAppointments: (value: PendingAppointment[] | ((val: PendingAppointment[]) => PendingAppointment[])) => void;
   confirmedAppointments: Appointment[];
   setConfirmedAppointments: (value: Appointment[] | ((val: Appointment[]) => Appointment[])) => void;
-  services: Service[];
   staff: Staff[];
 }) {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const handleConfirm = (pendingAppointmentId: string, newConfirmedAppointment: Appointment) => {
     setConfirmedAppointments(current => [...current, newConfirmedAppointment].sort((a, b) => a.time.localeCompare(b.time)));
@@ -248,7 +241,7 @@ export function PendingAppointments({
     setPendingAppointments(current => current.filter(app => app.id !== appointmentId));
   };
 
-  const validAppointments = isClient ? pendingAppointments.filter(app => app.service && app.service.name) : [];
+  const validAppointments = pendingAppointments.filter(app => app.service && app.service.name);
 
   return (
     <Card className="bg-card border-border h-fit">
