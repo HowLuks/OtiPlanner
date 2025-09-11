@@ -86,7 +86,7 @@ function PendingAppointmentCard({
         if (result.success) {
           const newConfirmedAppointment: Appointment = {
             id: `c${Date.now()}`,
-            date: format(toZonedTime(new Date(appointment.date), 'UTC'), 'yyyy-MM-dd'),
+            date: appointment.date,
             client: appointment.client,
             time: appointment.time,
             service: appointment.service.name,
