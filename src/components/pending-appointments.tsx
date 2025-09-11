@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { format } from 'date-fns';
+import { utcToZonedTime } from 'date-fns-tz';
 import { Clock, Check, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -42,14 +43,15 @@ function PendingAppointmentCard({
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
   const checkForConflict = (staffId: string, date: string, time: string, duration: number): boolean => {
-    const newAppointmentStart = new Date(`${date}T${time}:00`).getTime();
+    // Add timezone handling to avoid off-by-one day errors
+    const newAppointmentStart = utcToZonedTime(new Date(`${date}T${time}`), 'UTC').getTime();
     const newAppointmentEnd = newAppointmentStart + duration * 60 * 1000;
 
     return confirmedAppointments.some(existing => {
       if (existing.staffId !== staffId || existing.date !== date) {
         return false;
       }
-      const existingStart = new Date(`${existing.date}T${existing.time}:00`).getTime();
+      const existingStart = utcToZonedTime(new Date(`${existing.date}T${existing.time}`), 'UTC').getTime();
       const existingEnd = existingStart + existing.duration * 60 * 1000;
       
       return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
@@ -79,7 +81,7 @@ function PendingAppointmentCard({
         if (result.success) {
           const newConfirmedAppointment: Appointment = {
             id: `c${Date.now()}`,
-            date: appointment.date,
+            date: format(utcToZonedTime(new Date(appointment.date), 'UTC'), 'yyyy-MM-dd'),
             client: appointment.client,
             time: appointment.time,
             service: appointment.service.name,
@@ -141,6 +143,9 @@ function PendingAppointmentCard({
     }
   }
 
+  // To fix hydration error, we need to make sure the date is parsed in UTC
+  const displayDate = format(utcToZonedTime(new Date(appointment.date), 'UTC'), 'dd/MM/yyyy');
+
   return (
     <div className="flex items-center gap-4 p-4 rounded-lg bg-background">
       <div className="flex items-center justify-center rounded-full bg-accent shrink-0 size-12">
@@ -148,7 +153,7 @@ function PendingAppointmentCard({
       </div>
       <div className="flex-1">
         <p className="font-medium">{appointment.client} - {appointment.service.name}</p>
-        <p className="text-sm text-muted-foreground">{format(new Date(appointment.date), 'dd/MM/yyyy')} - {appointment.time}</p>
+        <p className="text-sm text-muted-foreground">{displayDate} - {appointment.time}</p>
       </div>
       <div className="flex gap-2">
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -174,7 +179,7 @@ function PendingAppointmentCard({
               </div>
               <div className="space-y-1">
                   <Label>Data</Label>
-                  <p className="text-sm">{format(new Date(appointment.date), 'dd/MM/yyyy')} - {appointment.time}</p>
+                  <p className="text-sm">{displayDate} - {appointment.time}</p>
               </div>
               <div className="space-y-1 col-span-2">
                   <Label>Serviço</Label>
@@ -223,12 +228,14 @@ export function PendingAppointments({
   setPendingAppointments,
   confirmedAppointments,
   setConfirmedAppointments,
+  services,
   staff
 }: { 
   pendingAppointments: PendingAppointment[];
   setPendingAppointments: (value: PendingAppointment[] | ((val: PendingAppointment[]) => PendingAppointment[])) => void;
   confirmedAppointments: Appointment[];
   setConfirmedAppointments: (value: Appointment[] | ((val: Appointment[]) => Appointment[])) => void;
+  services: Service[];
   staff: Staff[];
 }) {
 
