@@ -14,11 +14,11 @@ import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
 import useLocalStorage from '@/lib/storage';
-import { initialServices, initialStaff, Service, Staff, Appointment, PendingAppointment, initialConfirmedAppointments, initialPendingAppointments } from '@/lib/data';
+import { initialServices, initialFuncionarios, Service, Staff, Appointment, PendingAppointment, initialConfirmedAppointments, initialPendingAppointments } from '@/lib/data';
 
 export default function Home() {
   const [services] = useLocalStorage<Service[]>('services', initialServices);
-  const [staff] = useLocalStorage<Staff[]>('staff', initialStaff);
+  const [staff] = useLocalStorage<Staff[]>('staff', initialFuncionarios);
   const [confirmedAppointments, setConfirmedAppointments] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
   const [pendingAppointments, setPendingAppointments] = useLocalStorage<PendingAppointment[]>('pendingAppointments', initialPendingAppointments);
 
@@ -232,6 +232,7 @@ export default function Home() {
           <ConfirmedAppointments 
             selectedDate={selectedDate}
             confirmedAppointments={confirmedAppointments}
+            setConfirmedAppointments={setConfirmedAppointments}
           />
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">
