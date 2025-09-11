@@ -44,16 +44,8 @@ export type PendingAppointment = {
   id: string;
   time: string;
   client: string;
-  service: string;
+  service: Service;
 }
-
-export const initialPendingAppointments: PendingAppointment[] = [
-    { id: 'p1', client: 'João Almeida', time: '11:00', service: 'Corte Social' },
-    { id: 'p2', client: 'Maria Santos', time: '15:00', service: 'Manicure Simples' },
-    { id: 'p3', client: 'Pedro Costa', time: '17:00', service: 'Limpeza de Pele' },
-    { id: 'p4', client: 'Juliana Lima', time: '09:00', service: 'Coloração' },
-    { id: 'p5', client: 'Ricardo Alves', time: '13:00', service: 'Design de Barba' },
-];
 
 export type Service = {
   id: string;
@@ -72,6 +64,15 @@ export const initialServices: Service[] = [
   { id: 's6', name: 'Limpeza de Pele', price: 80, role: 'Esteticista' },
   { id: 's7', name: 'Coloração', price: 120, role: 'Cabeleireira' },
 ];
+
+export const initialPendingAppointments: PendingAppointment[] = [
+    { id: 'p1', client: 'João Almeida', time: '11:00', service: initialServices.find(s => s.id === 's1')! },
+    { id: 'p2', client: 'Maria Santos', time: '15:00', service: initialServices.find(s => s.id === 's3')! },
+    { id: 'p3', client: 'Pedro Costa', time: '17:00', service: initialServices.find(s => s.id === 's6')! },
+    { id: 'p4', client: 'Juliana Lima', time: '09:00', service: initialServices.find(s => s.id === 's7')! },
+    { id: 'p5', client: 'Ricardo Alves', time: '13:00', service: initialServices.find(s => s.id === 's5')! },
+];
+
 
 
 export type Funcionario = {

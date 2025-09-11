@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AppHeader } from "@/components/header";
 import { CalendarView } from "@/components/calendar-view";
 import { ConfirmedAppointments } from "@/components/confirmed-appointments";
@@ -48,9 +48,7 @@ export default function Home() {
   };
 
   const handleCreateAppointment = () => {
-    const serviceName = services.find(s => s.id === selectedServiceId)?.name;
-
-    if (!clientName || !appointmentTime || !serviceName) {
+    if (!clientName || !appointmentTime || !selectedService) {
       alert('Por favor, preencha o nome do cliente, horário e serviço.');
       return;
     }
@@ -64,7 +62,7 @@ export default function Home() {
         id: `c${confirmedAppointments.length + Date.now()}`,
         client: clientName,
         time: appointmentTime,
-        service: serviceName,
+        service: selectedService.name,
         staffId: selectedStaffId,
       };
       setConfirmedAppointments(prev => [...prev, newConfirmedAppointment]);
@@ -73,7 +71,7 @@ export default function Home() {
         id: `p${pendingAppointments.length + Date.now()}`,
         client: clientName,
         time: appointmentTime,
-        service: serviceName,
+        service: selectedService,
       };
       setPendingAppointments(prev => [...prev, newPendingAppointment]);
     }
@@ -82,11 +80,11 @@ export default function Home() {
   };
   
   // Reset staff selection if the service changes and the currently selected staff is no longer valid
-  useState(() => {
+  useEffect(() => {
     if (selectedService && !filteredStaff.find(s => s.id === selectedStaffId)) {
       setSelectedStaffId('');
     }
-  });
+  }, [selectedService, filteredStaff, selectedStaffId]);
 
 
   return (

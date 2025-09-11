@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { initialServices, Service } from '@/lib/data';
 
 // This is a simplified in-memory store. 
 // In a real application, you would use a database.
@@ -31,6 +32,12 @@ export async function POST(request: Request) {
     }
 
     const { client, time, service } = validation.data;
+
+    const serviceObject = initialServices.find(s => s.name.toLowerCase() === service.toLowerCase());
+
+    if (!serviceObject) {
+         return NextResponse.json({ success: false, error: `Service '${service}' not found.` }, { status: 400 });
+    }
     
     // In a real app, you'd get the `pendingAppointments` from a shared data source
     // or from the localStorage on the client side. Here we use a simulated global store.
@@ -42,7 +49,7 @@ export async function POST(request: Request) {
         id: `p${globalStore.pendingAppointments.length + Date.now()}`,
         client,
         time,
-        service,
+        service: serviceObject,
     };
 
     // Add to our simulated store

@@ -16,13 +16,11 @@ function PendingAppointmentCard({
   appointment, 
   onConfirm,
   onReject,
-  services,
   staff,
 }: { 
   appointment: PendingAppointment;
   onConfirm: (appointmentId: string, newConfirmedAppointment: Appointment) => void;
   onReject: (id: string) => void;
-  services: Service[];
   staff: Staff[];
 }) {
   const [isPending, startTransition] = useTransition();
@@ -30,19 +28,12 @@ function PendingAppointmentCard({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState('');
 
-  const serviceRole = useMemo(() => {
-    const service = services.find(s => s.name === appointment.service);
-    return service?.role;
-  }, [services, appointment.service]);
-
   const filteredStaff = useMemo(() => {
-    if (!serviceRole) {
-      // If role not found, maybe show all? Or just qualified ones if logic allows.
-      // For now, returning empty if no role, to be safe.
+    if (!appointment.service || !appointment.service.role) {
       return [];
     }
-    return staff.filter(s => s.role === serviceRole);
-  }, [staff, serviceRole]);
+    return staff.filter(s => s.role === appointment.service.role);
+  }, [staff, appointment.service]);
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
@@ -65,7 +56,7 @@ function PendingAppointmentCard({
             id: `c${Date.now()}`,
             client: appointment.client,
             time: appointment.time,
-            service: appointment.service,
+            service: appointment.service.name,
             staffId: selectedStaffId,
           };
           onConfirm(appointment.id, newConfirmedAppointment);
@@ -121,7 +112,7 @@ function PendingAppointmentCard({
         <Clock className="text-white h-6 w-6" />
       </div>
       <div className="flex-1">
-        <p className="font-medium">{appointment.client} - {appointment.service}</p>
+        <p className="font-medium">{appointment.client} - {appointment.service.name}</p>
         <p className="text-sm text-muted-foreground">{appointment.time}</p>
       </div>
       <div className="flex gap-2">
@@ -148,7 +139,7 @@ function PendingAppointmentCard({
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Serviço</Label>
-                <span className="col-span-3">{appointment.service}</span>
+                <span className="col-span-3">{appointment.service.name}</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="staff" className="text-right">
@@ -167,7 +158,7 @@ function PendingAppointmentCard({
               </div>
             </div>
             <div className="flex justify-end pt-4">
-                <Button onClick={handleConfirm} disabled={isPending}>Confirmar Agendamento</Button>
+                <Button onClick={handleConfirm} disabled={isPending || !selectedStaffId}>Confirmar Agendamento</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -230,7 +221,6 @@ export function PendingAppointments({
                 appointment={appointment} 
                 onConfirm={handleConfirm}
                 onReject={handleReject}
-                services={services}
                 staff={staff}
               />
             ))}
