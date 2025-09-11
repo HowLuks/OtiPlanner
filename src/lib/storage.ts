@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
 function useLocalStorage<T>(key: string, initialValue: T) {
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-
   const readValue = useCallback(() => {
     if (typeof window === 'undefined') {
       return initialValue;
@@ -17,11 +14,7 @@ function useLocalStorage<T>(key: string, initialValue: T) {
     }
   }, [initialValue, key]);
 
-  useEffect(() => {
-    setStoredValue(readValue());
-    setIsInitialized(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const [storedValue, setStoredValue] = useState<T>(readValue);
 
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
@@ -31,15 +24,20 @@ function useLocalStorage<T>(key: string, initialValue: T) {
       }
 
       try {
-        const valueToStore = value instanceof Function ? value(readValue()) : value;
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-        setStoredValue(valueToStore);
+        const newValue = value instanceof Function ? value(storedValue) : value;
+        window.localStorage.setItem(key, JSON.stringify(newValue));
+        setStoredValue(newValue);
       } catch (error) {
         console.warn(`Error setting localStorage key “${key}”:`, error);
       }
     },
-    [key, readValue]
+    [key, storedValue]
   );
+  
+  useEffect(() => {
+    setStoredValue(readValue());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
@@ -55,7 +53,7 @@ function useLocalStorage<T>(key: string, initialValue: T) {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [key]);
 
-  return [storedValue, setValue, isInitialized] as const;
+  return [storedValue, setValue] as const;
 }
 
 export default useLocalStorage;

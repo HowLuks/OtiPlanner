@@ -6,16 +6,16 @@ import { DonutChart, DonutChartCell } from "@/components/donut-chart";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DollarSign, TrendingUp, Users } from "lucide-react";
 import Image from "next/image";
-import useLocalStorage from "@/lib/storage";
 import { initialFuncionarios, initialSaldoEmCaixa, Funcionario, initialRoles, Role } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
+import useSyncedStore from "@/hooks/use-synced-store";
 
 export default function DashboardPage() {
-    const [funcionarios, , funcionariosInitialized] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
-    const [saldoEmCaixa, , saldoInitialized] = useLocalStorage<number>('saldoEmCaixa', initialSaldoEmCaixa);
-    const [roles, , rolesInitialized] = useLocalStorage<Role[]>('roles', initialRoles);
+    const funcionarios = useSyncedStore<Funcionario[]>('funcionarios', initialFuncionarios);
+    const saldoEmCaixa = useSyncedStore<number>('saldoEmCaixa', initialSaldoEmCaixa);
+    const roles = useSyncedStore<Role[]>('roles', initialRoles);
 
-    if (!funcionariosInitialized || !saldoInitialized || !rolesInitialized) {
+    if (!funcionarios || !saldoEmCaixa || !roles) {
         return (
           <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="mb-8">

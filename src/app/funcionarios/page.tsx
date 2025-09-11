@@ -22,6 +22,7 @@ import { initialRoles, initialFuncionarios, Funcionario, Role } from "@/lib/data
 import { Combobox } from '@/components/ui/combobox';
 import useLocalStorage from '@/lib/storage';
 import { Skeleton } from '@/components/ui/skeleton';
+import useSyncedStore from '@/hooks/use-synced-store';
 
 
 interface FuncionarioCardProps {
@@ -174,8 +175,10 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
 }
 
 export default function FuncionariosPage() {
-  const [funcionarios, setFuncionarios, funcionariosInitialized] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
-  const [roles, setRoles, rolesInitialized] = useLocalStorage<Role[]>('roles', initialRoles);
+  const [funcionarios, setFuncionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
+  const [roles, setRoles] = useLocalStorage<Role[]>('roles', initialRoles);
+
+  const isStoreInitialized = useSyncedStore('roles', initialRoles) !== null && useSyncedStore('funcionarios', initialFuncionarios) !== null;
   
   const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
@@ -183,7 +186,7 @@ export default function FuncionariosPage() {
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
 
-  if (!funcionariosInitialized || !rolesInitialized) {
+  if (!isStoreInitialized || !roles || !funcionarios) {
       return (
         <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
