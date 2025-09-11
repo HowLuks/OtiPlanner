@@ -56,7 +56,7 @@ export function AppHeader() {
                         <span className="sr-only">Abrir menu</span>
                     </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="bg-[#122118] border-r border-border p-6">
+                <SheetContent side="left" className="bg-card border-r border-border p-6">
                     <SheetTitle className="sr-only">Menu</SheetTitle>
                     <nav className="flex flex-col gap-6 mt-8">
                         {navLinks.map((link) => (

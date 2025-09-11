@@ -68,9 +68,9 @@ export default function FinanceiroPage() {
                                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">{transaction.date}</td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">{transaction.description}</td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm">
-                                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${transaction.isIncome ? 'bg-primary/20 text-primary' : 'bg-red-900/50 text-red-400'}`}>{transaction.type}</span>
+                                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${transaction.isIncome ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>{transaction.type}</span>
                                         </td>
-                                        <td className={`whitespace-nowrap px-6 py-4 text-right text-sm font-medium ${transaction.isIncome ? 'text-primary' : 'text-red-500'}`}>{transaction.value}</td>
+                                        <td className={`whitespace-nowrap px-6 py-4 text-right text-sm font-medium ${transaction.isIncome ? 'text-green-500' : 'text-red-500'}`}>{transaction.value}</td>
                                     </tr>
                                 ))}
                             </tbody>
