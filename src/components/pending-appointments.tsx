@@ -30,14 +30,19 @@ function PendingAppointmentCard({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState('');
 
-  const serviceForAppointment = useMemo(() => services.find(s => s.name === appointment.service), [services, appointment.service]);
+  const serviceRole = useMemo(() => {
+    const service = services.find(s => s.name === appointment.service);
+    return service?.role;
+  }, [services, appointment.service]);
 
   const filteredStaff = useMemo(() => {
-    if (!serviceForAppointment) {
+    if (!serviceRole) {
+      // If role not found, maybe show all? Or just qualified ones if logic allows.
+      // For now, returning empty if no role, to be safe.
       return [];
     }
-    return staff.filter(s => s.role === serviceForAppointment.role);
-  }, [staff, serviceForAppointment]);
+    return staff.filter(s => s.role === serviceRole);
+  }, [staff, serviceRole]);
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
