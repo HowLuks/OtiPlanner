@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState } from 'react';
@@ -20,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { initialRoles, initialFuncionarios, Funcionario, Role } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
-import useLocalStorage from '@/lib/storage';
 import { Skeleton } from '@/components/ui/skeleton';
 import useSyncedStore from '@/hooks/use-synced-store';
 
@@ -175,18 +172,30 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
 }
 
 export default function FuncionariosPage() {
-  const [funcionarios, setFuncionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
-  const [roles, setRoles] = useLocalStorage<Role[]>('roles', initialRoles);
+  const funcionarios = useSyncedStore<Funcionario[]>('funcionarios', initialFuncionarios);
+  const roles = useSyncedStore<Role[]>('roles', initialRoles);
 
-  const isStoreInitialized = useSyncedStore('roles', initialRoles) !== null && useSyncedStore('funcionarios', initialFuncionarios) !== null;
-  
   const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
 
-  if (!isStoreInitialized || !roles || !funcionarios) {
+  const setFuncionarios = (updater: Funcionario[] | ((current: Funcionario[]) => Funcionario[])) => {
+    const newValue = typeof updater === 'function' ? updater(funcionarios || []) : updater;
+    localStorage.setItem('funcionarios', JSON.stringify(newValue));
+    // This is a hack to trigger re-render, ideally use context or a proper state manager
+    window.dispatchEvent(new Event('storage'));
+  };
+
+  const setRoles = (updater: Role[] | ((current: Role[]) => Role[])) => {
+    const newValue = typeof updater === 'function' ? updater(roles || []) : updater;
+    localStorage.setItem('roles', JSON.stringify(newValue));
+    window.dispatchEvent(new Event('storage'));
+  };
+
+
+  if (!roles || !funcionarios) {
       return (
         <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
@@ -209,7 +218,7 @@ export default function FuncionariosPage() {
   const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
 
   const getRoleName = (roleId: string) => {
-    return roles.find(role => role.id === roleId)?.name || 'N/A';
+    return roles.find(role => role.id === roleId)?.name || 'aqui deve mostrar a função e não N/A';
   }
 
   const handleAddNewRole = () => {

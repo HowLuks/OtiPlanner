@@ -1,20 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 
-function useLocalStorage<T>(key: string, initialValue: T) {
-  const readValue = useCallback(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? (JSON.parse(item) as T) : initialValue;
-    } catch (error) {
-      console.warn(`Error reading localStorage key “${key}”:`, error);
-      return initialValue;
-    }
-  }, [initialValue, key]);
+function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const [storedValue, setStoredValue] = useState<T>(readValue);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const item = window.localStorage.getItem(key);
+        if (item) {
+          setStoredValue(JSON.parse(item) as T);
+        }
+      } catch (error) {
+        console.warn(`Error reading localStorage key “${key}”:`, error);
+      }
+      setIsInitialized(true); 
+    }
+  }, [key]);
 
   const setValue = useCallback(
     (value: T | ((val: T) => T)) => {
@@ -24,20 +26,15 @@ function useLocalStorage<T>(key: string, initialValue: T) {
       }
 
       try {
-        const newValue = value instanceof Function ? value(storedValue) : value;
-        window.localStorage.setItem(key, JSON.stringify(newValue));
-        setStoredValue(newValue);
+        const valueToStore = value instanceof Function ? value(storedValue) : value;
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        setStoredValue(valueToStore);
       } catch (error) {
         console.warn(`Error setting localStorage key “${key}”:`, error);
       }
     },
     [key, storedValue]
   );
-  
-  useEffect(() => {
-    setStoredValue(readValue());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
@@ -53,7 +50,10 @@ function useLocalStorage<T>(key: string, initialValue: T) {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [key]);
 
-  return [storedValue, setValue] as const;
+
+  const clientValue = isInitialized ? storedValue : initialValue;
+
+  return [clientValue, setValue];
 }
 
 export default useLocalStorage;
