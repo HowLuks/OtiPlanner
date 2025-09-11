@@ -21,7 +21,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { useAuth } from '@/contexts/auth-context';
+import { useData } from '@/contexts/data-context';
 
 interface FuncionarioCardProps {
   funcionario: Funcionario;
@@ -173,9 +173,7 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
 }
 
 export default function FuncionariosPage() {
-  const { user, loading: authLoading } = useAuth();
-  const [funcionarios, setFuncionarios] = useState<Funcionario[] | null>(null);
-  const [roles, setRoles] = useState<Role[] | null>(null);
+  const { funcionarios, roles, loading } = useData();
 
   const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
@@ -183,26 +181,7 @@ export default function FuncionariosPage() {
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
 
-   useEffect(() => {
-    if (!authLoading && user) {
-        const unsubFunc = onSnapshot(collection(db, 'funcionarios'), (snapshot) => {
-            setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario));
-        });
-
-        const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
-            setRoles(snapshot.docs.map(doc => doc.data() as Role));
-        });
-        
-        return () => {
-            unsubFunc();
-            unsubRoles();
-        };
-    }
-  }, [user, authLoading]);
-
-  const isLoading = authLoading || !roles || !funcionarios;
-
-  if (isLoading) {
+  if (loading) {
       return (
         <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">

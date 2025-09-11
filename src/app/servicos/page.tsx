@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -26,36 +26,17 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
-import { useAuth } from '@/contexts/auth-context';
+import { doc, setDoc } from 'firebase/firestore';
+import { useData } from "@/contexts/data-context";
 
 
 export default function ServicosPage() {
-  const { user, loading: authLoading } = useAuth();
-  const [services, setServices] = useState<Service[] | null>(null);
-  const [roles, setRoles] = useState<Role[] | null>(null);
+  const { services, roles, loading } = useData();
   const [selectedRoleId, setSelectedRoleId] = useState('');
 
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState<number | ''>('');
   const [newServiceDuration, setNewServiceDuration] = useState<number | ''>(30);
-
-  useEffect(() => {
-    if (!authLoading && user) {
-      const unsubServices = onSnapshot(collection(db, 'services'), (snapshot) => {
-          setServices(snapshot.docs.map(doc => doc.data() as Service));
-      });
-
-      const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
-          setRoles(snapshot.docs.map(doc => doc.data() as Role));
-      });
-
-      return () => {
-          unsubServices();
-          unsubRoles();
-      };
-    }
-  }, [user, authLoading]);
 
 
   const handleAddNewService = async () => {
@@ -83,9 +64,7 @@ export default function ServicosPage() {
     return roles.find(role => role.id === roleId)?.name || 'N/A';
   }
 
-  const isLoading = authLoading || !services || !roles;
-
-  if (isLoading) {
+  if (loading) {
       return (
           <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">

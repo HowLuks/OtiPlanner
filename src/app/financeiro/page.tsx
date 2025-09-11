@@ -1,39 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react';
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Transaction, EmployeePerformance } from "@/lib/data";
 import { Skeleton } from '@/components/ui/skeleton';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/contexts/auth-context';
+import { useData } from "@/contexts/data-context";
+
 
 export default function FinanceiroPage() {
-    const { user, loading: authLoading } = useAuth();
-    const [transactions, setTransactions] = useState<Transaction[] | null>(null);
-    const [employeePerformance, setEmployeePerformance] = useState<EmployeePerformance[] | null>(null);
+    const { transactions, employeePerformance, loading } = useData();
 
-    useEffect(() => {
-        if (!authLoading && user) {
-            const unsubTrans = onSnapshot(collection(db, 'transactions'), (snapshot) => {
-                setTransactions(snapshot.docs.map(doc => doc.data() as Transaction));
-            });
-
-            const unsubPerf = onSnapshot(collection(db, 'employeePerformance'), (snapshot) => {
-                setEmployeePerformance(snapshot.docs.map(doc => doc.data() as EmployeePerformance));
-            });
-
-            return () => {
-                unsubTrans();
-                unsubPerf();
-            };
-        }
-    }, [user, authLoading]);
-
-    const isLoading = authLoading || !transactions || !employeePerformance;
-
-    if (isLoading) {
+    if (loading) {
         return (
              <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
                 <div className="mx-auto max-w-7xl">

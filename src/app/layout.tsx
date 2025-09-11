@@ -1,9 +1,9 @@
-// src/app/layout.tsx
 'use client';
 
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { DataProvider } from '@/contexts/data-context';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -113,7 +113,9 @@ export default function RootLayout({
 }>) {
   return (
     <AuthProvider>
-      <AppLayout>{children}</AppLayout>
+      <DataProvider>
+        <AppLayout>{children}</AppLayout>
+      </DataProvider>
     </AuthProvider>
   );
 }

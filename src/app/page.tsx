@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -14,22 +13,20 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
-import { Service, Funcionario, Appointment, PendingAppointment, Role } from '@/lib/data';
+import { Service, Funcionario, Appointment, PendingAppointment } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db, seedDatabase } from '@/lib/firebase';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
-import { useAuth } from '@/contexts/auth-context';
-
+import { doc, setDoc } from 'firebase/firestore';
+import { useData } from '@/contexts/data-context';
 
 export default function Home() {
-  const { user, loading: authLoading } = useAuth();
-  const [services, setServices] = useState<Service[] | null>(null);
-  const [roles, setRoles] = useState<Role[] | null>(null);
-  const [funcionarios, setFuncionarios] = useState<Funcionario[] | null>(null);
-  const [confirmedAppointments, setConfirmedAppointments] = useState<Appointment[] | null>(null);
-  const [pendingAppointments, setPendingAppointments] = useState<PendingAppointment[] | null>(null);
-  
-  const [isLoading, setIsLoading] = useState(true);
+  const { 
+    services, 
+    funcionarios, 
+    confirmedAppointments, 
+    pendingAppointments, 
+    loading: dataLoading 
+  } = useData();
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [clientName, setClientName] = useState('');
@@ -41,59 +38,26 @@ export default function Home() {
   const [conflictError, setConflictError] = useState('');
   
   useEffect(() => {
-    if (!authLoading && user) {
-        // Seed the database if necessary, only after user is authenticated
-        seedDatabase();
-
-        const unsubServices = onSnapshot(collection(db, 'services'), snapshot => setServices(snapshot.docs.map(doc => doc.data() as Service)));
-        const unsubRoles = onSnapshot(collection(db, 'roles'), snapshot => setRoles(snapshot.docs.map(doc => doc.data() as Role)));
-        const unsubFuncionarios = onSnapshot(collection(db, 'funcionarios'), snapshot => setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario)));
-        const unsubConfirmed = onSnapshot(collection(db, 'confirmedAppointments'), snapshot => setConfirmedAppointments(snapshot.docs.map(doc => doc.data() as Appointment)));
-        const unsubPending = onSnapshot(collection(db, 'pendingAppointments'), snapshot => setPendingAppointments(snapshot.docs.map(doc => doc.data() as PendingAppointment)));
-        
-        // Clean up subscriptions on unmount
-        return () => {
-            unsubServices();
-            unsubRoles();
-            unsubFuncionarios();
-            unsubConfirmed();
-            unsubPending();
-        };
-    }
-  }, [user, authLoading]);
-
-  // Determine overall loading state
-  useEffect(() => {
-    if (!authLoading && services !== null && roles !== null && funcionarios !== null && confirmedAppointments !== null && pendingAppointments !== null) {
-      setIsLoading(false);
-    } else if (!authLoading && !user) {
-      // If auth is done and there's no user, we are not loading data.
-      setIsLoading(false);
-    } else {
-      setIsLoading(true);
-    }
-  }, [authLoading, user, services, roles, funcionarios, confirmedAppointments, pendingAppointments]);
-
+    // Seed the database if necessary
+    seedDatabase();
+  }, []);
 
   const selectedService = useMemo(() => {
-      if (!services) return undefined;
       return services.find(s => s.id === selectedServiceId)
     }, [services, selectedServiceId]);
 
   const filteredStaff = useMemo(() => {
-    if (!funcionarios || !selectedService) {
+    if (!selectedService) {
       return [];
     }
     return funcionarios.filter(s => s.roleId === selectedService.roleId);
   }, [funcionarios, selectedService]);
 
   const staffOptions = useMemo(() => {
-    if (!filteredStaff) return [];
     return filteredStaff.map(s => ({ value: s.id, label: s.name }));
   }, [filteredStaff]);
 
   const serviceOptions = useMemo(() => {
-    if (!services) return [];
     return services.map(s => ({ value: s.id, label: `${s.name} - R$${s.price}` }));
   }, [services]);
 
@@ -108,7 +72,6 @@ export default function Home() {
   };
 
   const checkForConflict = (staffId: string, date: string, time: string): boolean => {
-    if (!services || !confirmedAppointments) return false;
     const serviceForNewApp = services.find(s => s.id === selectedServiceId);
     if (!serviceForNewApp) return false;
 
@@ -131,7 +94,6 @@ export default function Home() {
   };
 
   const updateStaffSales = async (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
-    if(!services || !funcionarios) return;
     const service = services.find(s => s.id === serviceId);
     const func = funcionarios.find(f => f.id === staffId);
     if (!service || !func) return;
@@ -315,7 +277,7 @@ export default function Home() {
             </Dialog>
           </div>
           <CalendarView selectedDate={selectedDate} onDateChange={setSelectedDate} />
-          {isLoading ? (
+          {dataLoading ? (
             <div className="mt-8 space-y-4">
               <Skeleton className="h-8 w-1/3" />
               <Skeleton className="h-40 w-full" />
@@ -323,15 +285,15 @@ export default function Home() {
           ) : (
             <ConfirmedAppointments 
               selectedDate={selectedDate}
-              confirmedAppointments={confirmedAppointments || []}
-              services={services || []}
-              staff={funcionarios || []}
+              confirmedAppointments={confirmedAppointments}
+              services={services}
+              staff={funcionarios}
               updateStaffSales={updateStaffSales}
             />
           )}
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">
-          {isLoading ? (
+          {dataLoading ? (
              <div className="space-y-4">
               <Skeleton className="h-8 w-1/2" />
               <Skeleton className="h-24 w-full" />
@@ -340,10 +302,10 @@ export default function Home() {
             </div>
           ) : (
              <PendingAppointments
-                pendingAppointments={pendingAppointments || []}
-                confirmedAppointments={confirmedAppointments || []}
-                services={services || []}
-                staff={funcionarios || []}
+                pendingAppointments={pendingAppointments}
+                confirmedAppointments={confirmedAppointments}
+                services={services}
+                staff={funcionarios}
                 updateStaffSales={updateStaffSales}
             />
           )}

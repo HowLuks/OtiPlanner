@@ -1,56 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { DonutChart, DonutChartCell } from "@/components/donut-chart";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DollarSign, TrendingUp, Users } from "lucide-react";
 import Image from "next/image";
-import { Funcionario, Role } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
-import { collection, onSnapshot, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { useAuth } from '@/contexts/auth-context';
+import { useData } from "@/contexts/data-context";
 
 export default function DashboardPage() {
-    const { user, loading: authLoading } = useAuth();
-    const [funcionarios, setFuncionarios] = useState<Funcionario[] | null>(null);
-    const [saldoEmCaixa, setSaldoEmCaixa] = useState<number | null>(null);
-    const [roles, setRoles] = useState<Role[] | null>(null);
-
-    useEffect(() => {
-        if (!authLoading && user) {
-            const unsubFunc = onSnapshot(collection(db, 'funcionarios'), (snapshot) => {
-                setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario));
-            });
-
-            const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
-                setRoles(snapshot.docs.map(doc => doc.data() as Role));
-            });
-
-            const unsubSaldo = onSnapshot(doc(db, 'appState', 'saldoEmCaixa'), (doc) => {
-                if (doc.exists()) {
-                    setSaldoEmCaixa(doc.data().value);
-                }
-            });
-            
-            return () => {
-                unsubFunc();
-                unsubRoles();
-                unsubSaldo();
-            };
-        }
-    }, [user, authLoading]);
+    const { funcionarios, roles, saldoEmCaixa, loading } = useData();
 
     const getRoleName = (roleId: string) => {
         if (!roles) return 'Carregando...';
         return roles.find(role => role.id === roleId)?.name || 'N/A';
     }
 
-    const isLoading = authLoading || !funcionarios || saldoEmCaixa === null || !roles;
-
-    if (isLoading) {
+    if (loading) {
         return (
           <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
