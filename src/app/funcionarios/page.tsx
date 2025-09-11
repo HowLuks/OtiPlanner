@@ -1,11 +1,38 @@
+'use client';
+
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { staff, Staff } from "@/lib/data";
 import Image from "next/image";
-import { Edit, Trash, Plus, CheckCircle, XCircle } from "lucide-react";
+import { Edit, Trash, Plus, CheckCircle, XCircle, Upload } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+type Funcionario = {
+  id: string;
+  name: string;
+  role: string;
+  avatarUrl: string;
+  avatarHint: string;
+  salesGoal: number;
+  salesValue: number;
+  salesTarget: number;
+  online: boolean;
+};
 
 export default function FuncionariosPage() {
-  const funcionarios = [
+  const [selectedFuncionario, setSelectedFuncionario] = useState<Funcionario | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const funcionarios: Funcionario[] = [
     {
       id: "1",
       name: "Mariana Silva",
@@ -63,59 +90,117 @@ export default function FuncionariosPage() {
     },
   ];
 
+  const handleEditClick = (funcionario: Funcionario) => {
+    setSelectedFuncionario(funcionario);
+    setIsDialogOpen(true);
+  };
+
   return (
-    <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Gerenciamento de Funcionários</h2>
-          <p className="text-muted-foreground mt-1">Adicione, edite e gerencie os funcionários do seu estabelecimento.</p>
-        </div>
-        <Button className="mt-4 md:mt-0">
-          <Plus className="mr-2" />
-          Novo Funcionário
-        </Button>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {funcionarios.map((funcionario) => (
-          <div key={funcionario.id} className="bg-card rounded-xl p-5 flex flex-col items-center text-center transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/10">
-            <div className="relative mb-4">
-              <Image
-                alt={funcionario.name}
-                className="w-28 h-28 rounded-full object-cover ring-4 ring-background group-hover:ring-primary transition-all"
-                src={funcionario.avatarUrl}
-                width={112}
-                height={112}
-                data-ai-hint={funcionario.avatarHint}
-              />
-              {funcionario.online ? (
-                <CheckCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-green-500 text-background border-2 border-card" />
-              ) : (
-                <XCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-red-500 text-background border-2 border-card" />
-              )}
-            </div>
-            <h3 className="font-bold text-lg">{funcionario.name}</h3>
-            <p className="text-sm text-muted-foreground">{funcionario.role}</p>
-            <div className="w-full mt-5">
-              <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
-                <span>Meta de Vendas</span>
-                <span className="font-semibold text-primary">{funcionario.salesGoal}%</span>
-              </div>
-              <Progress value={funcionario.salesGoal} className="h-2" />
-              <p className="text-xs text-muted-foreground mt-1">
-                R$ {funcionario.salesValue.toLocaleString('pt-BR')} / R$ {funcionario.salesTarget.toLocaleString('pt-BR')}
-              </p>
-            </div>
-            <div className="mt-5 flex gap-2">
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-primary">
-                <Edit className="text-xl" />
-              </Button>
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive">
-                <Trash className="text-xl" />
-              </Button>
-            </div>
+    <>
+      <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Gerenciamento de Funcionários</h2>
+            <p className="text-muted-foreground mt-1">Adicione, edite e gerencie os funcionários do seu estabelecimento.</p>
           </div>
-        ))}
-      </div>
-    </main>
+          <Button className="mt-4 md:mt-0">
+            <Plus className="mr-2" />
+            Novo Funcionário
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {funcionarios.map((funcionario) => (
+            <div key={funcionario.id} className="bg-card rounded-xl p-5 flex flex-col items-center text-center transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/10">
+              <div className="relative mb-4">
+                <Image
+                  alt={funcionario.name}
+                  className="w-28 h-28 rounded-full object-cover ring-4 ring-background group-hover:ring-primary transition-all"
+                  src={funcionario.avatarUrl}
+                  width={112}
+                  height={112}
+                  data-ai-hint={funcionario.avatarHint}
+                />
+                {funcionario.online ? (
+                  <CheckCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-green-500 text-background border-2 border-card" />
+                ) : (
+                  <XCircle className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-red-500 text-background border-2 border-card" />
+                )}
+              </div>
+              <h3 className="font-bold text-lg">{funcionario.name}</h3>
+              <p className="text-sm text-muted-foreground">{funcionario.role}</p>
+              <div className="w-full mt-5">
+                <div className="flex justify-between items-center text-xs text-muted-foreground mb-1">
+                  <span>Meta de Vendas</span>
+                  <span className="font-semibold text-primary">{funcionario.salesGoal}%</span>
+                </div>
+                <Progress value={funcionario.salesGoal} className="h-2" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  R$ {funcionario.salesValue.toLocaleString('pt-BR')} / R$ {funcionario.salesTarget.toLocaleString('pt-BR')}
+                </p>
+              </div>
+              <div className="mt-5 flex gap-2">
+                <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-primary" onClick={() => handleEditClick(funcionario)}>
+                        <Edit className="text-xl" />
+                    </Button>
+                </DialogTrigger>
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive">
+                  <Trash className="text-xl" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Funcionário</DialogTitle>
+          </DialogHeader>
+          {selectedFuncionario && (
+             <Tabs defaultValue="edit-employee">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="change-goal">Alterar Meta</TabsTrigger>
+                    <TabsTrigger value="edit-employee">Editar Funcionário</TabsTrigger>
+                </TabsList>
+                <TabsContent value="change-goal">
+                    <div className="p-4">
+                        <p>Conteúdo para alterar meta aqui.</p>
+                    </div>
+                </TabsContent>
+                <TabsContent value="edit-employee">
+                    <div className="space-y-4 p-4">
+                        <div className="space-y-2">
+                            <Label>Foto</Label>
+                            <div className="flex items-center gap-4">
+                                <Image src={selectedFuncionario.avatarUrl} alt={selectedFuncionario.name} width={64} height={64} className="rounded-full" />
+                                <Button variant="outline" size="sm" asChild>
+                                  <label htmlFor="photo-upload" className="cursor-pointer">
+                                      <Upload className="mr-2 h-4 w-4" />
+                                      Alterar foto
+                                      <input id="photo-upload" type="file" className="sr-only" />
+                                  </label>
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Nome</Label>
+                            <Input id="name" defaultValue={selectedFuncionario.name} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="role">Função</Label>
+                            <Input id="role" defaultValue={selectedFuncionario.role} />
+                        </div>
+                         <div className="flex justify-end pt-4">
+                          <Button>Salvar Alterações</Button>
+                        </div>
+                    </div>
+                </TabsContent>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
