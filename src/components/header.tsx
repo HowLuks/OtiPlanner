@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -57,6 +58,7 @@ export function AppHeader() {
                     </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="bg-[#122118] border-r border-border p-6">
+                    <SheetTitle className="sr-only">Menu</SheetTitle>
                     <nav className="flex flex-col gap-6 mt-8">
                         {navLinks.map((link) => (
                           <Link
