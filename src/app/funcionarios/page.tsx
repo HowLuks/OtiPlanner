@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { initialRoles, initialFuncionarios, Funcionario, Role } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
 import useLocalStorage from '@/lib/storage';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 interface FuncionarioCardProps {
@@ -40,7 +41,7 @@ function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, 
   const [editSalesTarget, setEditSalesTarget] = useState<number | ''>(funcionario.salesTarget);
   
   const roleName = useMemo(() => {
-    if (!roles) return 'Carregando...';
+    if (!roles || roles.length === 0) return '...';
     return roles.find(role => role.id === funcionario.roleId)?.name || 'N/A';
   }, [roles, funcionario.roleId]);
 
@@ -188,8 +189,26 @@ export default function FuncionariosPage() {
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
 
   if (!funcionariosInitialized || !rolesInitialized) {
-    return null; // Or a loading spinner
+      return (
+        <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
+                <Skeleton className="h-9 w-64" />
+                <div className="flex gap-2 mt-4 md:mt-0">
+                    <Skeleton className="h-10 w-32" />
+                    <Skeleton className="h-10 w-40" />
+                </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <Skeleton className="h-80" />
+                <Skeleton className="h-80" />
+                <Skeleton className="h-80" />
+                <Skeleton className="h-80" />
+            </div>
+        </main>
+      )
   }
+
+  const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
 
   const handleAddNewRole = () => {
     if (newRoleName.trim() !== '' && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
@@ -240,8 +259,6 @@ export default function FuncionariosPage() {
       reader.readAsDataURL(file);
     }
   };
-
-  const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
   
   return (
     <>

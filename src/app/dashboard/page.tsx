@@ -8,6 +8,7 @@ import { DollarSign, TrendingUp, Users } from "lucide-react";
 import Image from "next/image";
 import useLocalStorage from "@/lib/storage";
 import { initialFuncionarios, initialSaldoEmCaixa, Funcionario, initialRoles, Role } from "@/lib/data";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardPage() {
     const [funcionarios, , funcionariosInitialized] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
@@ -15,7 +16,27 @@ export default function DashboardPage() {
     const [roles, , rolesInitialized] = useLocalStorage<Role[]>('roles', initialRoles);
 
     if (!funcionariosInitialized || !saldoInitialized || !rolesInitialized) {
-        return null; // ou um componente de loading
+        return (
+          <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
+            <div className="mb-8">
+              <Skeleton className="h-9 w-64" />
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </div>
+            <div>
+              <Skeleton className="h-8 w-96 mb-4" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <Skeleton className="h-80" />
+                <Skeleton className="h-80" />
+                <Skeleton className="h-80" />
+                <Skeleton className="h-80" />
+              </div>
+            </div>
+          </main>
+        );
     }
     
     const getRoleName = (roleId: string) => {
