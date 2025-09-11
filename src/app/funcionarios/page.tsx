@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Image from "next/image";
@@ -26,25 +26,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface FuncionarioCardProps {
   funcionario: Funcionario;
-  roles: Role[];
+  roleName: string;
   roleOptions: { label: string; value: string }[];
   onUpdate: (updatedFuncionario: Funcionario) => void;
   onDelete: (id: string) => void;
   onPhotoUpload: (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => void;
 }
 
-function FuncionarioCard({ funcionario, roles, roleOptions, onUpdate, onDelete, onPhotoUpload }: FuncionarioCardProps) {
+function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelete, onPhotoUpload }: FuncionarioCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editEmployeeName, setEditEmployeeName] = useState(funcionario.name);
   const [editEmployeeRoleId, setEditEmployeeRoleId] = useState(funcionario.roleId);
   const [editEmployeePhoto, setEditEmployeePhoto] = useState<string | null>(funcionario.avatarUrl);
   const [editSalesTarget, setEditSalesTarget] = useState<number | ''>(funcionario.salesTarget);
   
-  const roleName = useMemo(() => {
-    if (!roles || roles.length === 0) return '...';
-    return roles.find(role => role.id === funcionario.roleId)?.name || 'N/A';
-  }, [roles, funcionario.roleId]);
-
   const handleOpen = () => {
     setEditEmployeeName(funcionario.name);
     setEditEmployeeRoleId(funcionario.roleId);
@@ -210,6 +205,10 @@ export default function FuncionariosPage() {
 
   const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
 
+  const getRoleName = (roleId: string) => {
+    return roles.find(role => role.id === roleId)?.name || 'N/A';
+  }
+
   const handleAddNewRole = () => {
     if (newRoleName.trim() !== '' && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
         const newRole: Role = {
@@ -363,7 +362,7 @@ export default function FuncionariosPage() {
             <FuncionarioCard 
               key={funcionario.id}
               funcionario={funcionario}
-              roles={roles}
+              roleName={getRoleName(funcionario.roleId)}
               roleOptions={roleOptions}
               onUpdate={handleUpdateFuncionario}
               onDelete={handleDeleteEmployee}
