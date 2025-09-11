@@ -12,19 +12,22 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { usePathname } from "next/navigation";
 
 const navLinks = [
-  { href: "#", label: "Dashboard" },
-  { href: "#", label: "Clientes" },
-  { href: "#", label: "Serviços" },
-  { href: "#", label: "Funcionários" },
-  { href: "#", label: "Agendamentos", active: true },
-  { href: "#", label: "Financeiro" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/clientes", label: "Clientes" },
+  { href: "/servicos", label: "Serviços" },
+  { href: "/funcionarios", label: "Funcionários" },
+  { href: "/", label: "Agendamentos" },
+  { href: "/financeiro", label: "Financeiro" },
 ];
 
 const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
 
 export function AppHeader() {
+  const pathname = usePathname();
+
   return (
     <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-border px-6 lg:px-10 py-4">
       <div className="flex items-center gap-4">
@@ -37,7 +40,7 @@ export function AppHeader() {
             key={link.label}
             href={link.href}
             className={`text-sm font-medium transition-colors hover:text-white ${
-              link.active ? "text-white" : "text-gray-300"
+              pathname === link.href ? "text-white" : "text-gray-300"
             }`}
           >
             {link.label}
@@ -60,7 +63,7 @@ export function AppHeader() {
                             key={link.label}
                             href={link.href}
                             className={`text-lg font-medium transition-colors hover:text-white ${
-                              link.active ? "text-white" : "text-gray-300"
+                              pathname === link.href ? "text-white" : "text-gray-300"
                             }`}
                           >
                             {link.label}
