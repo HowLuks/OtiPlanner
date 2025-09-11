@@ -32,7 +32,7 @@ export function AppHeader() {
     <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-border px-6 lg:px-10 py-4">
       <div className="flex items-center gap-4">
         <Logo className="text-primary h-6 w-6" />
-        <h1 className="text-xl font-bold font-headline">Agendamento</h1>
+        <h1 className="text-xl font-bold font-headline">OtiPlanner</h1>
       </div>
       <nav className="hidden lg:flex items-center gap-8">
         {navLinks.map((link) => (

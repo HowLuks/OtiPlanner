@@ -11,7 +11,6 @@ export default function Home() {
         <div className="flex-1 lg:w-[65%] xl:w-[70%]">
           <div className="mb-6">
             <h2 className="text-3xl font-bold font-headline">Agendamentos</h2>
-            <p className="text-muted-foreground">Visualize e gerencie seus agendamentos.</p>
           </div>
           <CalendarView />
           <ConfirmedAppointments />

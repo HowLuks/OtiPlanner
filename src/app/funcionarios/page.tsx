@@ -109,7 +109,6 @@ export default function FuncionariosPage() {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Gerenciamento de Funcionários</h2>
-            <p className="text-muted-foreground mt-1">Adicione, edite e gerencie os funcionários do seu estabelecimento.</p>
           </div>
           <div className="flex gap-2 mt-4 md:mt-0">
              <Dialog>

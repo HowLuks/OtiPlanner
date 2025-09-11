@@ -26,7 +26,6 @@ export default function FinanceiroPage() {
                 <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
                     <div>
                         <h1 className="text-4xl font-bold tracking-tight">Fluxo de Caixa</h1>
-                        <p className="mt-2 text-gray-400">Visão geral das suas transações financeiras mensais.</p>
                     </div>
                     <Button className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-gray-900 transition-transform hover:scale-105">
                         <Plus className="mr-2" />

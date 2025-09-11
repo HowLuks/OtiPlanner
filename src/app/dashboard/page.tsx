@@ -71,7 +71,6 @@ export default function DashboardPage() {
     <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
       <div className="mb-8">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground mt-1">Visão geral do desempenho da sua equipe e finanças.</p>
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
         <Card>

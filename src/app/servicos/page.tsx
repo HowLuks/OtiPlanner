@@ -38,7 +38,6 @@ export default function ServicosPage() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Serviços</h2>
-          <p className="text-muted-foreground mt-1">Gerencie os serviços oferecidos pelo seu estabelecimento.</p>
         </div>
         <Dialog>
           <DialogTrigger asChild>
