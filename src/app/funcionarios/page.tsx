@@ -238,6 +238,10 @@ export default function FuncionariosPage() {
     }
   };
 
+  if (!isClient) {
+    return null; // Or a loading spinner
+  }
+
   const roleOptions = roles.map(role => ({ value: role.id, label: role.name }));
   
   return (
@@ -339,7 +343,7 @@ export default function FuncionariosPage() {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {isClient && funcionarios.map((funcionario) => (
+          {funcionarios.map((funcionario) => (
             <FuncionarioCard 
               key={funcionario.id}
               funcionario={funcionario}
