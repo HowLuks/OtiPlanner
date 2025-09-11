@@ -23,12 +23,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 
 
 export default function ServicosPage() {
   const [services, setServices] = useState<Service[]>(initialServices);
   const [roles, setRoles] = useState<string[]>(availableRoles);
+  const [selectedRole, setSelectedRole] = useState('');
+
+  const roleOptions = roles.map(role => ({ value: role.toLowerCase(), label: role }));
 
   return (
     <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
@@ -59,16 +62,14 @@ export default function ServicosPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role-select">Função</Label>
-                  <Select>
-                    <SelectTrigger id="role-select">
-                      <SelectValue placeholder="Selecione uma função" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map(role => (
-                        <SelectItem key={role} value={role}>{role}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    options={roleOptions}
+                    value={selectedRole}
+                    onChange={setSelectedRole}
+                    placeholder="Selecione a função"
+                    searchPlaceholder="Buscar função..."
+                    emptyText="Nenhuma função encontrada."
+                  />
                 </div>
                 <div className="flex justify-end pt-4">
                   <DialogClose asChild>

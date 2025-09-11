@@ -16,9 +16,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { roles as availableRoles, staff as initialStaff } from "@/lib/data";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
+import { roles as availableRoles } from "@/lib/data";
+import { Combobox } from '@/components/ui/combobox';
 
 type Funcionario = {
   id: string;
@@ -93,10 +92,16 @@ export default function FuncionariosPage() {
 
   const [roles, setRoles] = useState(availableRoles);
   const [selectedFuncionario, setSelectedFuncionario] = useState<Funcionario | null>(null);
+  const [newEmployeeRole, setNewEmployeeRole] = useState('');
+  const [editEmployeeRole, setEditEmployeeRole] = useState('');
+
 
   const handleEditClick = (funcionario: Funcionario) => {
     setSelectedFuncionario(funcionario);
+    setEditEmployeeRole(funcionario.role.toLowerCase())
   };
+
+  const roleOptions = roles.map(role => ({ value: role.toLowerCase(), label: role }));
   
   return (
     <>
@@ -164,16 +169,14 @@ export default function FuncionariosPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="new-role-select">Função</Label>
-                     <Select>
-                      <SelectTrigger id="new-role-select">
-                        <SelectValue placeholder="Selecione a função" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roles.map((role) => (
-                          <SelectItem key={role} value={role}>{role}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                     <Combobox
+                        options={roleOptions}
+                        value={newEmployeeRole}
+                        onChange={setNewEmployeeRole}
+                        placeholder="Selecione a função"
+                        searchPlaceholder="Buscar função..."
+                        emptyText="Nenhuma função encontrada."
+                      />
                   </div>
                   <div className="flex justify-end pt-4">
                      <DialogClose asChild>
@@ -187,7 +190,7 @@ export default function FuncionariosPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {funcionarios.map((funcionario) => (
-            <Dialog key={funcionario.id}>
+            <Dialog key={funcionario.id} onOpenChange={(open) => !open && setSelectedFuncionario(null)}>
               <div className="bg-card rounded-xl p-5 flex flex-col items-center text-center transition-transform duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-primary/10">
                 <div className="relative mb-4">
                   <Image
@@ -275,16 +278,14 @@ export default function FuncionariosPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="role-select">Função</Label>
-                          <Select defaultValue={selectedFuncionario.role}>
-                            <SelectTrigger id="role-select">
-                              <SelectValue placeholder="Selecione uma função" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {roles.map((role) => (
-                                <SelectItem key={role} value={role}>{role}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                           <Combobox
+                                options={roleOptions}
+                                value={editEmployeeRole}
+                                onChange={setEditEmployeeRole}
+                                placeholder="Selecione a função"
+                                searchPlaceholder="Buscar função..."
+                                emptyText="Nenhuma função encontrada."
+                            />
                         </div>
                         <div className="flex justify-end pt-4">
                            <DialogClose asChild>
