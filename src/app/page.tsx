@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { format } from 'date-fns';
 import { AppHeader } from "@/components/header";
 import { CalendarView } from "@/components/calendar-view";
 import { ConfirmedAppointments } from "@/components/confirmed-appointments";
@@ -21,11 +22,14 @@ export default function Home() {
   const [confirmedAppointments, setConfirmedAppointments] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
   const [pendingAppointments, setPendingAppointments] = useLocalStorage<PendingAppointment[]>('pendingAppointments', initialPendingAppointments);
 
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [clientName, setClientName] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [appointmentDate, setAppointmentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [appointmentTime, setAppointmentTime] = useState('');
   const [appointmentStatus, setAppointmentStatus] = useState<'confirmed' | 'pending'>('pending');
+  const [conflictError, setConflictError] = useState('');
 
   const selectedService = useMemo(() => services.find(s => s.id === selectedServiceId), [services, selectedServiceId]);
 
@@ -43,32 +47,60 @@ export default function Home() {
     setClientName('');
     setSelectedServiceId('');
     setSelectedStaffId('');
+    setAppointmentDate(format(selectedDate || new Date(), 'yyyy-MM-dd'));
     setAppointmentTime('');
     setAppointmentStatus('pending');
+    setConflictError('');
+  };
+
+  const checkForConflict = (staffId: string, date: string, time: string, duration: number): boolean => {
+    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
+    const newAppointmentEnd = newAppointmentStart + duration * 60 * 1000;
+
+    return confirmedAppointments.some(existing => {
+      if (existing.staffId !== staffId || existing.date !== date) {
+        return false;
+      }
+      const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
+      const existingEnd = existingStart + existing.duration * 60 * 1000;
+
+      // Check for overlap
+      return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
+    });
   };
 
   const handleCreateAppointment = () => {
-    if (!clientName || !appointmentTime || !selectedService) {
-      alert('Por favor, preencha o nome do cliente, horário e serviço.');
+    if (!clientName || !appointmentTime || !selectedService || !appointmentDate) {
+      alert('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
+    setConflictError('');
 
     if (appointmentStatus === 'confirmed') {
       if (!selectedStaffId) {
         alert('Para agendamentos confirmados, o profissional é obrigatório.');
         return;
       }
+
+      if (checkForConflict(selectedStaffId, appointmentDate, appointmentTime, selectedService.duration)) {
+        setConflictError('Este profissional já possui um agendamento conflitante neste horário.');
+        return;
+      }
+
       const newConfirmedAppointment: Appointment = {
         id: `c${confirmedAppointments.length + Date.now()}`,
+        date: appointmentDate,
         client: clientName,
         time: appointmentTime,
         service: selectedService.name,
         staffId: selectedStaffId,
+        duration: selectedService.duration,
       };
       setConfirmedAppointments(prev => [...prev, newConfirmedAppointment]);
     } else {
       const newPendingAppointment: PendingAppointment = {
         id: `p${pendingAppointments.length + Date.now()}`,
+        date: appointmentDate,
         client: clientName,
         time: appointmentTime,
         service: selectedService,
@@ -77,14 +109,21 @@ export default function Home() {
     }
 
     resetForm();
+    // This is a bit of a hack to make DialogClose work with the conditional error
+    if (!conflictError) {
+      document.getElementById('close-dialog-button')?.click();
+    }
   };
   
-  // Reset staff selection if the service changes and the currently selected staff is no longer valid
   useEffect(() => {
     if (selectedService && !filteredStaff.find(s => s.id === selectedStaffId)) {
       setSelectedStaffId('');
     }
   }, [selectedService, filteredStaff, selectedStaffId]);
+
+  useEffect(() => {
+    setAppointmentDate(format(selectedDate || new Date(), 'yyyy-MM-dd'));
+  }, [selectedDate]);
 
 
   return (
@@ -111,6 +150,12 @@ export default function Home() {
                       Cliente
                     </Label>
                     <Input id="client-name" value={clientName} onChange={e => setClientName(e.target.value)} className="col-span-3" placeholder="Nome do cliente" />
+                  </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="appointment-date" className="text-right">
+                      Data
+                    </Label>
+                    <Input id="appointment-date" type="date" value={appointmentDate} onChange={e => setAppointmentDate(e.target.value)} className="col-span-3" />
                   </div>
                    <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="appointment-time" className="text-right">
@@ -168,22 +213,29 @@ export default function Home() {
                       </div>
                     </>
                   )}
+                   {conflictError && (
+                    <div className="col-span-4 text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-md">
+                      {conflictError}
+                    </div>
+                  )}
                 </div>
                  <div className="flex justify-end pt-4">
-                    <DialogClose asChild>
                       <Button onClick={handleCreateAppointment}>Salvar Agendamento</Button>
-                    </DialogClose>
+                      <DialogClose asChild>
+                        <Button id="close-dialog-button" variant="ghost" className="hidden">Close</Button>
+                      </DialogClose>
                   </div>
               </DialogContent>
             </Dialog>
           </div>
-          <CalendarView />
-          <ConfirmedAppointments />
+          <CalendarView selectedDate={selectedDate} onDateChange={setSelectedDate} />
+          <ConfirmedAppointments selectedDate={selectedDate} />
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">
            <PendingAppointments
             pendingAppointments={pendingAppointments}
             setPendingAppointments={setPendingAppointments}
+            confirmedAppointments={confirmedAppointments}
             setConfirmedAppointments={setConfirmedAppointments}
             services={services}
             staff={staff}
@@ -193,3 +245,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

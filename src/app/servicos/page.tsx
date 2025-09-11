@@ -34,18 +34,21 @@ export default function ServicosPage() {
 
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState<number | ''>('');
+  const [newServiceDuration, setNewServiceDuration] = useState<number | ''>(30);
 
   const handleAddNewService = () => {
-    if (newServiceName.trim() && newServicePrice && selectedRole) {
+    if (newServiceName.trim() && newServicePrice && newServiceDuration && selectedRole) {
       const newService: Service = {
-        id: `s${services.length + 1}`,
+        id: `s${services.length + 1 + Date.now()}`,
         name: newServiceName.trim(),
         price: Number(newServicePrice),
         role: roles.find(r => r.toLowerCase() === selectedRole) || '',
+        duration: Number(newServiceDuration),
       };
       setServices([...services, newService]);
       setNewServiceName('');
       setNewServicePrice('');
+      setNewServiceDuration(30);
       setSelectedRole('');
     }
   };
@@ -79,6 +82,10 @@ export default function ServicosPage() {
                   <Input id="service-price" type="number" placeholder="Ex: 30.00" value={newServicePrice} onChange={e => setNewServicePrice(e.target.value === '' ? '' : Number(e.target.value))} />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="service-duration">Duração (minutos)</Label>
+                  <Input id="service-duration" type="number" placeholder="Ex: 30" value={newServiceDuration} onChange={e => setNewServiceDuration(e.target.value === '' ? '' : Number(e.target.value))} />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="role-select">Função</Label>
                   <Combobox
                     options={roleOptions}
@@ -109,6 +116,7 @@ export default function ServicosPage() {
               <TableRow>
                 <TableHead>Serviço</TableHead>
                 <TableHead>Função</TableHead>
+                <TableHead>Duração</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
               </TableRow>
             </TableHeader>
@@ -117,6 +125,7 @@ export default function ServicosPage() {
                 <TableRow key={service.id}>
                   <TableCell className="font-medium">{service.name}</TableCell>
                   <TableCell>{service.role}</TableCell>
+                  <TableCell>{service.duration} min</TableCell>
                   <TableCell className="text-right">
                     {service.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </TableCell>
@@ -129,3 +138,5 @@ export default function ServicosPage() {
     </main>
   );
 }
+
+    

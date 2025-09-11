@@ -1,5 +1,7 @@
 'use client'
 
+import { useMemo } from "react";
+import { format } from 'date-fns';
 import {
   Table,
   TableBody,
@@ -18,9 +20,23 @@ const getStaffMember = (staff: Staff[], staffId: string): Staff | undefined => {
   return staff.find(s => s.id === staffId);
 };
 
-export function ConfirmedAppointments() {
+interface ConfirmedAppointmentsProps {
+  selectedDate: Date | undefined;
+}
+
+export function ConfirmedAppointments({ selectedDate }: ConfirmedAppointmentsProps) {
   const [confirmedAppointments] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
   const [staff] = useLocalStorage<Staff[]>('staff', initialStaff);
+
+  const filteredAppointments = useMemo(() => {
+    if (!selectedDate) {
+      return [];
+    }
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    return confirmedAppointments
+      .filter(app => app.date === dateStr)
+      .sort((a, b) => a.time.localeCompare(b.time));
+  }, [confirmedAppointments, selectedDate]);
 
   return (
     <div className="mt-8">
@@ -37,24 +53,32 @@ export function ConfirmedAppointments() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {confirmedAppointments.map((appointment) => {
-                const staffMember = getStaffMember(staff, appointment.staffId);
-                return (
-                  <TableRow key={appointment.id}>
-                    <TableCell className="px-6 py-4 text-sm text-muted-foreground">{appointment.time}</TableCell>
-                    <TableCell className="px-6 py-4 text-sm font-medium">{appointment.client}</TableCell>
-                    <TableCell className="px-6 py-4 text-sm text-muted-foreground">{appointment.service}</TableCell>
-                    <TableCell className="px-6 py-4">
-                      {staffMember && (
-                         <Avatar className="h-10 w-10">
-                            <AvatarImage src={staffMember.avatarUrl} alt={staffMember.name} data-ai-hint={staffMember.avatarHint} />
-                            <AvatarFallback>{staffMember.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                      )}
+              {filteredAppointments.length > 0 ? (
+                filteredAppointments.map((appointment) => {
+                  const staffMember = getStaffMember(staff, appointment.staffId);
+                  return (
+                    <TableRow key={appointment.id}>
+                      <TableCell className="px-6 py-4 text-sm text-muted-foreground">{appointment.time}</TableCell>
+                      <TableCell className="px-6 py-4 text-sm font-medium">{appointment.client}</TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-muted-foreground">{appointment.service}</TableCell>
+                      <TableCell className="px-6 py-4">
+                        {staffMember && (
+                           <Avatar className="h-10 w-10">
+                              <AvatarImage src={staffMember.avatarUrl} alt={staffMember.name} data-ai-hint={staffMember.avatarHint} />
+                              <AvatarFallback>{staffMember.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                 <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                      Nenhum agendamento para esta data.
                     </TableCell>
                   </TableRow>
-                );
-              })}
+              )}
             </TableBody>
           </Table>
         </div>
@@ -62,3 +86,5 @@ export function ConfirmedAppointments() {
     </div>
   );
 }
+
+    

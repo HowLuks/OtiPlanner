@@ -1,22 +1,24 @@
 'use client';
 
-import { useState } from 'react';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
 
-export function CalendarView() {
-  const [date, setDate] = useState<Date | undefined>(new Date());
+interface CalendarViewProps {
+  selectedDate: Date | undefined;
+  onDateChange: (date: Date | undefined) => void;
+}
 
+export function CalendarView({ selectedDate, onDateChange }: CalendarViewProps) {
   return (
     <Card className="bg-card">
       <CardContent className="p-0">
         <Calendar
           mode="single"
-          selected={date}
-          onSelect={setDate}
+          selected={selectedDate}
+          onSelect={onDateChange}
           className="w-full"
           locale={ptBR}
           showOutsideDays={false}
@@ -47,3 +49,5 @@ export function CalendarView() {
     </Card>
   );
 }
+
+    

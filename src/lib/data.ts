@@ -28,20 +28,26 @@ export const initialStaff: Staff[] = [
 
 export type Appointment = {
   id: string;
+  date: string; // YYYY-MM-DD
   time: string;
   client: string;
   service: string;
   staffId: string;
+  duration: number; // in minutes
 };
 
+const today = new Date();
+const todayStr = today.toISOString().split('T')[0];
+
 export const initialConfirmedAppointments: Appointment[] = [
-  { id: 'c1', time: '10:00', client: 'Ana Silva', service: 'Corte de Cabelo', staffId: '1' },
-  { id: 'c2', time: '14:00', client: 'Carlos Pereira', service: 'Barba', staffId: '2' },
-  { id: 'c3', time: '16:00', client: 'Sofia Mendes', service: 'Manicure', staffId: '3' },
+  { id: 'c1', date: todayStr, time: '10:00', client: 'Ana Silva', service: 'Corte de Cabelo', staffId: '1', duration: 60 },
+  { id: 'c2', date: todayStr, time: '14:00', client: 'Carlos Pereira', service: 'Barba', staffId: '2', duration: 30 },
+  { id: 'c3', date: todayStr, time: '16:00', client: 'Sofia Mendes', service: 'Manicure', staffId: '3', duration: 45 },
 ];
 
 export type PendingAppointment = {
   id: string;
+  date: string;
   time: string;
   client: string;
   service: Service;
@@ -52,25 +58,26 @@ export type Service = {
   name: string;
   price: number;
   role: string;
+  duration: number; // in minutes
 };
 
 
 export const initialServices: Service[] = [
-  { id: 's1', name: 'Corte Social', price: 30, role: 'Barbeiro' },
-  { id: 's2', name: 'Corte de Cabelo Feminino', price: 60, role: 'Cabeleireira' },
-  { id: 's3', name: 'Manicure Simples', price: 25, role: 'Manicure' },
-  { id: 's4', name: 'Pedicure Simples', price: 30, role: 'Manicure' },
-  { id: 's5', name: 'Design de Barba', price: 25, role: 'Barbeiro' },
-  { id: 's6', name: 'Limpeza de Pele', price: 80, role: 'Esteticista' },
-  { id: 's7', name: 'Coloração', price: 120, role: 'Cabeleireira' },
+  { id: 's1', name: 'Corte Social', price: 30, role: 'Barbeiro', duration: 30 },
+  { id: 's2', name: 'Corte de Cabelo Feminino', price: 60, role: 'Cabeleireira', duration: 60 },
+  { id: 's3', name: 'Manicure Simples', price: 25, role: 'Manicure', duration: 45 },
+  { id: 's4', name: 'Pedicure Simples', price: 30, role: 'Manicure', duration: 45 },
+  { id: 's5', name: 'Design de Barba', price: 25, role: 'Barbeiro', duration: 30 },
+  { id: 's6', name: 'Limpeza de Pele', price: 80, role: 'Esteticista', duration: 90 },
+  { id: 's7', name: 'Coloração', price: 120, role: 'Cabeleireira', duration: 120 },
 ];
 
 export const initialPendingAppointments: PendingAppointment[] = [
-    { id: 'p1', client: 'João Almeida', time: '11:00', service: initialServices.find(s => s.id === 's1')! },
-    { id: 'p2', client: 'Maria Santos', time: '15:00', service: initialServices.find(s => s.id === 's3')! },
-    { id: 'p3', client: 'Pedro Costa', time: '17:00', service: initialServices.find(s => s.id === 's6')! },
-    { id: 'p4', client: 'Juliana Lima', time: '09:00', service: initialServices.find(s => s.id === 's7')! },
-    { id: 'p5', client: 'Ricardo Alves', time: '13:00', service: initialServices.find(s => s.id === 's5')! },
+    { id: 'p1', date: todayStr, client: 'João Almeida', time: '11:00', service: initialServices.find(s => s.id === 's1')! },
+    { id: 'p2', date: todayStr, client: 'Maria Santos', time: '15:00', service: initialServices.find(s => s.id === 's3')! },
+    { id: 'p3', date: todayStr, client: 'Pedro Costa', time: '17:00', service: initialServices.find(s => s.id === 's6')! },
+    { id: 'p4', date: todayStr, client: 'Juliana Lima', time: '09:00', service: initialServices.find(s => s.id === 's7')! },
+    { id: 'p5', date: todayStr, client: 'Ricardo Alves', time: '13:00', service: initialServices.find(s => s.id === 's5')! },
 ];
 
 
@@ -157,3 +164,5 @@ export const initialEmployeePerformance: EmployeePerformance[] = [
 ];
 
 export const initialSaldoEmCaixa = 12500;
+
+    

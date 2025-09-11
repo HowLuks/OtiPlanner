@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
+import { format } from 'date-fns';
 import { Clock, Check, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -13,12 +14,14 @@ import { acceptRejectAppointment } from '@/ai/flows/accept-reject-appointments';
 import { PendingAppointment, Appointment, Service, Staff } from '@/lib/data';
 
 function PendingAppointmentCard({ 
-  appointment, 
+  appointment,
+  confirmedAppointments,
   onConfirm,
   onReject,
   staff,
 }: { 
   appointment: PendingAppointment;
+  confirmedAppointments: Appointment[];
   onConfirm: (appointmentId: string, newConfirmedAppointment: Appointment) => void;
   onReject: (id: string) => void;
   staff: Staff[];
@@ -27,6 +30,7 @@ function PendingAppointmentCard({
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [conflictError, setConflictError] = useState('');
 
   const filteredStaff = useMemo(() => {
     if (!appointment.service || !appointment.service.role) {
@@ -37,10 +41,32 @@ function PendingAppointmentCard({
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
+  const checkForConflict = (staffId: string, date: string, time: string, duration: number): boolean => {
+    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
+    const newAppointmentEnd = newAppointmentStart + duration * 60 * 1000;
+
+    return confirmedAppointments.some(existing => {
+      if (existing.staffId !== staffId || existing.date !== date) {
+        return false;
+      }
+      const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
+      const existingEnd = existingStart + existing.duration * 60 * 1000;
+
+      // Check for overlap
+      return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
+    });
+  };
+
   const handleConfirm = () => {
     if (!selectedStaffId) {
       alert('Selecione o profissional para confirmar.');
       return;
+    }
+    
+    setConflictError('');
+    if (checkForConflict(selectedStaffId, appointment.date, appointment.time, appointment.service.duration)) {
+        setConflictError('Este profissional já possui um agendamento conflitante neste horário.');
+        return;
     }
 
     startTransition(async () => {
@@ -54,10 +80,12 @@ function PendingAppointmentCard({
         if (result.success) {
           const newConfirmedAppointment: Appointment = {
             id: `c${Date.now()}`,
+            date: appointment.date,
             client: appointment.client,
             time: appointment.time,
             service: appointment.service.name,
             staffId: selectedStaffId,
+            duration: appointment.service.duration,
           };
           onConfirm(appointment.id, newConfirmedAppointment);
           setIsOpen(false);
@@ -105,6 +133,14 @@ function PendingAppointmentCard({
       }
     });
   };
+  
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setConflictError('');
+      setSelectedStaffId('');
+    }
+  }
 
   return (
     <div className="flex items-center gap-4 p-4 rounded-lg bg-background">
@@ -113,10 +149,10 @@ function PendingAppointmentCard({
       </div>
       <div className="flex-1">
         <p className="font-medium">{appointment.client} - {appointment.service.name}</p>
-        <p className="text-sm text-muted-foreground">{appointment.time}</p>
+        <p className="text-sm text-muted-foreground">{format(new Date(appointment.date), 'dd/MM/yyyy')} - {appointment.time}</p>
       </div>
       <div className="flex gap-2">
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
              <Button
               variant="ghost"
@@ -138,6 +174,10 @@ function PendingAppointmentCard({
                 <span className="col-span-3">{appointment.client}</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Data</Label>
+                <span className="col-span-3">{format(new Date(appointment.date), 'dd/MM/yyyy')} - {appointment.time}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Serviço</Label>
                 <span className="col-span-3">{appointment.service.name}</span>
               </div>
@@ -156,6 +196,11 @@ function PendingAppointmentCard({
                   />
                 </div>
               </div>
+              {conflictError && (
+                <div className="col-span-4 text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-md">
+                    {conflictError}
+                </div>
+              )}
             </div>
             <div className="flex justify-end pt-4">
                 <Button onClick={handleConfirm} disabled={isPending || !selectedStaffId}>Confirmar Agendamento</Button>
@@ -181,12 +226,14 @@ function PendingAppointmentCard({
 export function PendingAppointments({ 
   pendingAppointments,
   setPendingAppointments,
+  confirmedAppointments,
   setConfirmedAppointments,
   services,
   staff
 }: { 
   pendingAppointments: PendingAppointment[];
   setPendingAppointments: (value: PendingAppointment[] | ((val: PendingAppointment[]) => PendingAppointment[])) => void;
+  confirmedAppointments: Appointment[];
   setConfirmedAppointments: (value: Appointment[] | ((val: Appointment[]) => Appointment[])) => void;
   services: Service[];
   staff: Staff[];
@@ -220,6 +267,7 @@ export function PendingAppointments({
               <PendingAppointmentCard 
                 key={appointment.id} 
                 appointment={appointment} 
+                confirmedAppointments={confirmedAppointments}
                 onConfirm={handleConfirm}
                 onReject={handleReject}
                 staff={staff}
@@ -233,3 +281,5 @@ export function PendingAppointments({
     </Card>
   );
 }
+
+    
