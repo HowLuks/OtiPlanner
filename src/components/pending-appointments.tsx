@@ -42,7 +42,7 @@ function PendingAppointmentCard({
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
   const checkForConflict = (staffId: string, date: string, time: string, duration: number): boolean => {
-    const newAppointmentStart = new Date(`${date}T${time}:00`).getTime();
+    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
     const newAppointmentEnd = newAppointmentStart + duration * 60 * 1000;
 
     return confirmedAppointments.some(existing => {
@@ -167,20 +167,20 @@ function PendingAppointmentCard({
             <DialogHeader>
               <DialogTitle>Confirmar Agendamento</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-               <div className="grid grid-cols-2 items-center gap-4">
-                <Label>Cliente</Label>
-                <span>{appointment.client}</span>
+            <div className="grid gap-4 py-4 grid-cols-2">
+               <div className="space-y-1">
+                  <Label>Cliente</Label>
+                  <p>{appointment.client}</p>
               </div>
-              <div className="grid grid-cols-2 items-center gap-4">
-                <Label>Data</Label>
-                <span>{format(new Date(`${appointment.date}T00:00:00`), 'dd/MM/yyyy')} - {appointment.time}</span>
+              <div className="space-y-1">
+                  <Label>Data</Label>
+                  <p>{format(new Date(`${appointment.date}T00:00:00`), 'dd/MM/yyyy')} - {appointment.time}</p>
               </div>
-              <div className="grid grid-cols-2 items-center gap-4">
-                <Label>Serviço</Label>
-                <span>{appointment.service.name}</span>
+              <div className="space-y-1 col-span-2">
+                  <Label>Serviço</Label>
+                  <p>{appointment.service.name}</p>
               </div>
-              <div className="grid grid-cols-2 items-center gap-4">
+              <div className="space-y-1 col-span-2">
                 <Label htmlFor="staff">Profissional</Label>
                 <Combobox
                   options={staffOptions}
