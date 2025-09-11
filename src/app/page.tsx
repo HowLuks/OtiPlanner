@@ -17,8 +17,8 @@ import useLocalStorage from '@/lib/storage';
 import { initialServices, initialFuncionarios, Service, Funcionario, Appointment, PendingAppointment, initialConfirmedAppointments, initialPendingAppointments } from '@/lib/data';
 
 export default function Home() {
-  const [services] = useLocalStorage<Service[]>('services', initialServices);
-  const [staff] = useLocalStorage<Funcionario[]>('staff', initialFuncionarios);
+  const [services, setServices] = useLocalStorage<Service[]>('services', initialServices);
+  const [staff, setStaff] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
   const [confirmedAppointments, setConfirmedAppointments] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
   const [pendingAppointments, setPendingAppointments] = useLocalStorage<PendingAppointment[]>('pendingAppointments', initialPendingAppointments);
 
@@ -53,16 +53,21 @@ export default function Home() {
     setConflictError('');
   };
 
-  const checkForConflict = (staffId: string, date: string, time: string, duration: number): boolean => {
+  const checkForConflict = (staffId: string, date: string, time: string): boolean => {
     const newAppointmentStart = new Date(`${date}T${time}`).getTime();
-    const newAppointmentEnd = newAppointmentStart + duration * 60 * 1000;
+    const serviceForNewApp = services.find(s => s.id === selectedServiceId);
+    if (!serviceForNewApp) return false;
+    const newAppointmentEnd = newAppointmentStart + serviceForNewApp.duration * 60 * 1000;
 
     return confirmedAppointments.some(existing => {
       if (existing.staffId !== staffId || existing.date !== date) {
         return false;
       }
+      const existingService = services.find(s => s.id === existing.serviceId);
+      if (!existingService) return false;
+
       const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
-      const existingEnd = existingStart + existing.duration * 60 * 1000;
+      const existingEnd = existingStart + existingService.duration * 60 * 1000;
 
       // Check for overlap
       return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
@@ -70,7 +75,7 @@ export default function Home() {
   };
 
   const handleCreateAppointment = () => {
-    if (!clientName || !appointmentTime || !selectedService || !appointmentDate) {
+    if (!clientName || !appointmentTime || !selectedServiceId || !appointmentDate) {
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
@@ -82,7 +87,7 @@ export default function Home() {
         return;
       }
 
-      if (checkForConflict(selectedStaffId, appointmentDate, appointmentTime, selectedService.duration)) {
+      if (checkForConflict(selectedStaffId, appointmentDate, appointmentTime)) {
         setConflictError('Este profissional já possui um agendamento conflitante neste horário.');
         return;
       }
@@ -92,9 +97,8 @@ export default function Home() {
         date: appointmentDate,
         client: clientName,
         time: appointmentTime,
-        service: selectedService.name,
+        serviceId: selectedServiceId,
         staffId: selectedStaffId,
-        duration: selectedService.duration,
       };
       setConfirmedAppointments(prev => [...prev, newConfirmedAppointment]);
     } else {
@@ -103,7 +107,7 @@ export default function Home() {
         date: appointmentDate,
         client: clientName,
         time: appointmentTime,
-        service: selectedService,
+        serviceId: selectedServiceId,
       };
       setPendingAppointments(prev => [...prev, newPendingAppointment]);
     }
@@ -233,6 +237,8 @@ export default function Home() {
             selectedDate={selectedDate}
             confirmedAppointments={confirmedAppointments}
             setConfirmedAppointments={setConfirmedAppointments}
+            services={services}
+            staff={staff}
           />
         </div>
         <aside className="lg:w-[35%] xl:w-[30%]">

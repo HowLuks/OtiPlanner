@@ -20,12 +20,14 @@ function PendingAppointmentCard({
   onConfirm,
   onReject,
   staff,
+  services,
 }: { 
   appointment: PendingAppointment;
   confirmedAppointments: Appointment[];
   onConfirm: (appointmentId: string, newConfirmedAppointment: Appointment) => void;
   onReject: (id: string) => void;
   staff: Funcionario[];
+  services: Service[];
 }) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -34,6 +36,8 @@ function PendingAppointmentCard({
   const [conflictError, setConflictError] = useState('');
   const [displayDate, setDisplayDate] = useState('');
   
+  const service = useMemo(() => services.find(s => s.id === appointment.serviceId), [services, appointment.serviceId]);
+
   useEffect(() => {
     // Format date on client to avoid hydration mismatch
     const timeZone = 'UTC';
@@ -42,24 +46,28 @@ function PendingAppointmentCard({
   }, [appointment.date]);
 
   const filteredStaff = useMemo(() => {
-    if (!appointment.service || !appointment.service.roleId) {
+    if (!service) {
       return [];
     }
-    return staff.filter(s => s.roleId === appointment.service.roleId);
-  }, [staff, appointment.service]);
+    return staff.filter(s => s.roleId === service.roleId);
+  }, [staff, service]);
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
-  const checkForConflict = (staffId: string, date: string, time: string, duration: number): boolean => {
+  const checkForConflict = (staffId: string, date: string, time: string): boolean => {
+    if (!service) return false;
     const newAppointmentStart = toZonedTime(new Date(`${date}T${time}`), 'UTC').getTime();
-    const newAppointmentEnd = newAppointmentStart + duration * 60 * 1000;
+    const newAppointmentEnd = newAppointmentStart + service.duration * 60 * 1000;
 
     return confirmedAppointments.some(existing => {
       if (existing.staffId !== staffId || existing.date !== date) {
         return false;
       }
+      const existingService = services.find(s => s.id === existing.serviceId);
+      if (!existingService) return false;
+      
       const existingStart = toZonedTime(new Date(`${existing.date}T${existing.time}`), 'UTC').getTime();
-      const existingEnd = existingStart + existing.duration * 60 * 1000;
+      const existingEnd = existingStart + existingService.duration * 60 * 1000;
       
       return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
     });
@@ -72,7 +80,7 @@ function PendingAppointmentCard({
     }
     
     setConflictError('');
-    if (checkForConflict(selectedStaffId, appointment.date, appointment.time, appointment.service.duration)) {
+    if (checkForConflict(selectedStaffId, appointment.date, appointment.time)) {
         setConflictError('Este profissional já possui um agendamento conflitante neste horário.');
         return;
     }
@@ -91,9 +99,8 @@ function PendingAppointmentCard({
             date: appointment.date,
             client: appointment.client,
             time: appointment.time,
-            service: appointment.service.name,
+            serviceId: appointment.serviceId,
             staffId: selectedStaffId,
-            duration: appointment.service.duration,
           };
           onConfirm(appointment.id, newConfirmedAppointment);
           setIsOpen(false);
@@ -150,13 +157,21 @@ function PendingAppointmentCard({
     }
   }
 
+  if (!service) {
+      return (
+          <div className="flex items-center gap-4 p-4 rounded-lg bg-background text-red-500">
+              <p>Agendamento pendente inválido (serviço não encontrado).</p>
+          </div>
+      )
+  }
+
   return (
     <div className="flex items-center gap-4 p-4 rounded-lg bg-background">
       <div className="flex items-center justify-center rounded-full bg-accent shrink-0 size-12">
         <Clock className="text-white h-6 w-6" />
       </div>
       <div className="flex-1">
-        <p className="font-medium">{appointment.client} - {appointment.service.name}</p>
+        <p className="font-medium">{appointment.client} - {service.name}</p>
         <p className="text-sm text-muted-foreground">{displayDate} - {appointment.time}</p>
       </div>
       <div className="flex gap-2">
@@ -187,7 +202,7 @@ function PendingAppointmentCard({
               </div>
               <div className="space-y-1 col-span-2">
                   <Label>Serviço</Label>
-                  <p className="text-sm">{appointment.service.name}</p>
+                  <p className="text-sm">{service.name}</p>
               </div>
               <div className="space-y-2 col-span-2">
                 <Label htmlFor="staff">Profissional</Label>
@@ -252,17 +267,15 @@ export function PendingAppointments({
     setPendingAppointments(current => current.filter(app => app.id !== appointmentId));
   };
 
-  const validAppointments = pendingAppointments.filter(app => app.service && app.service.name);
-
   return (
     <Card className="bg-card border-border h-fit">
       <CardHeader>
         <CardTitle className="font-headline text-2xl font-bold">Agendamentos Pendentes</CardTitle>
       </CardHeader>
       <CardContent>
-        {validAppointments.length > 0 ? (
+        {pendingAppointments.length > 0 ? (
           <div className="space-y-4">
-            {validAppointments.map((appointment) => (
+            {pendingAppointments.map((appointment) => (
               <PendingAppointmentCard 
                 key={appointment.id} 
                 appointment={appointment} 
@@ -270,6 +283,7 @@ export function PendingAppointments({
                 onConfirm={handleConfirm}
                 onReject={handleReject}
                 staff={staff}
+                services={services}
               />
             ))}
           </div>

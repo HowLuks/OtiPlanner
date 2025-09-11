@@ -99,6 +99,16 @@ export const initialFuncionarios: Funcionario[] = [
       salesValue: 0,
       salesTarget: 4000,
     },
+     {
+      id: 'staff-4',
+      name: 'Camila',
+      roleId: 'role-4',
+      avatarUrl: 'https://picsum.photos/seed/9/112/112',
+      avatarHint: 'woman portrait',
+      salesGoal: 80,
+      salesValue: 3600,
+      salesTarget: 4500,
+    }
   ];
 
 
@@ -107,18 +117,17 @@ export type Appointment = {
   date: string; // YYYY-MM-DD
   time: string;
   client: string;
-  service: string;
+  serviceId: string;
   staffId: string;
-  duration: number; // in minutes
 };
 
 const today = new Date();
 const todayStr = today.toISOString().split('T')[0];
 
 export const initialConfirmedAppointments: Appointment[] = [
-  { id: 'c1', date: todayStr, time: '10:00', client: 'Ana Silva', service: 'Corte de Cabelo', staffId: 'staff-1', duration: 60 },
-  { id: 'c2', date: todayStr, time: '14:00', client: 'Carlos Pereira', service: 'Barba', staffId: 'staff-2', duration: 30 },
-  { id: 'c3', date: todayStr, time: '16:00', client: 'Sofia Mendes', service: 'Manicure', staffId: 'staff-3', duration: 45 },
+  { id: 'c1', date: todayStr, time: '10:00', client: 'Ana Silva', serviceId: 's2', staffId: 'staff-1' },
+  { id: 'c2', date: todayStr, time: '14:00', client: 'Carlos Pereira', serviceId: 's5', staffId: 'staff-2' },
+  { id: 'c3', date: todayStr, time: '16:00', client: 'Sofia Mendes', serviceId: 's3', staffId: 'staff-3' },
 ];
 
 export type PendingAppointment = {
@@ -126,7 +135,7 @@ export type PendingAppointment = {
   date: string;
   time: string;
   client: string;
-  service: Service;
+  serviceId: string;
 }
 
 export type Service = {
@@ -149,11 +158,11 @@ export const initialServices: Service[] = [
 ];
 
 export const initialPendingAppointments: PendingAppointment[] = [
-    { id: 'p1', date: todayStr, client: 'João Almeida', time: '11:00', service: initialServices.find(s => s.id === 's1')! },
-    { id: 'p2', date: todayStr, client: 'Maria Santos', time: '15:00', service: initialServices.find(s => s.id === 's3')! },
-    { id: 'p3', date: todayStr, client: 'Pedro Costa', time: '17:00', service: initialServices.find(s => s.id === 's6')! },
-    { id: 'p4', date: todayStr, client: 'Juliana Lima', time: '09:00', service: initialServices.find(s => s.id === 's7')! },
-    { id: 'p5', date: todayStr, client: 'Ricardo Alves', time: '13:00', service: initialServices.find(s => s.id === 's5')! },
+    { id: 'p1', date: todayStr, client: 'João Almeida', time: '11:00', serviceId: 's1' },
+    { id: 'p2', date: todayStr, client: 'Maria Santos', time: '15:00', serviceId: 's3' },
+    { id: 'p3', date: todayStr, client: 'Pedro Costa', time: '17:00', serviceId: 's6' },
+    { id: 'p4', date: todayStr, client: 'Juliana Lima', time: '09:00', serviceId: 's7' },
+    { id: 'p5', date: todayStr, client: 'Ricardo Alves', time: '13:00', serviceId: 's5' },
 ];
 
 export type Transaction = {

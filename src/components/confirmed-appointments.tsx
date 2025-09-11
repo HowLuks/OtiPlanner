@@ -12,22 +12,24 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { initialFuncionarios, Funcionario, Appointment } from "@/lib/data";
-import useLocalStorage from "@/lib/storage";
-
-
-const getStaffMember = (staff: Funcionario[], staffId: string): Funcionario | undefined => {
-  return staff.find(s => s.id === staffId);
-};
+import { Funcionario, Appointment, Service } from "@/lib/data";
 
 interface ConfirmedAppointmentsProps {
   selectedDate: Date | undefined;
   confirmedAppointments: Appointment[];
   setConfirmedAppointments: (value: Appointment[] | ((val: Appointment[]) => Appointment[])) => void;
+  staff: Funcionario[];
+  services: Service[];
 }
 
-export function ConfirmedAppointments({ selectedDate, confirmedAppointments }: ConfirmedAppointmentsProps) {
-  const [staff] = useLocalStorage<Funcionario[]>('staff', initialFuncionarios);
+export function ConfirmedAppointments({ selectedDate, confirmedAppointments, staff, services }: ConfirmedAppointmentsProps) {
+  const getStaffMember = (staffId: string): Funcionario | undefined => {
+    return staff.find(s => s.id === staffId);
+  };
+  
+  const getService = (serviceId: string): Service | undefined => {
+      return services.find(s => s.id === serviceId);
+  }
 
   const filteredAppointments = useMemo(() => {
     if (!selectedDate) {
@@ -56,12 +58,13 @@ export function ConfirmedAppointments({ selectedDate, confirmedAppointments }: C
             <TableBody>
               {filteredAppointments.length > 0 ? (
                 filteredAppointments.map((appointment) => {
-                  const staffMember = getStaffMember(staff, appointment.staffId);
+                  const staffMember = getStaffMember(appointment.staffId);
+                  const service = getService(appointment.serviceId);
                   return (
                     <TableRow key={appointment.id}>
                       <TableCell className="px-6 py-4 text-sm text-muted-foreground">{appointment.time}</TableCell>
                       <TableCell className="px-6 py-4 text-sm font-medium">{appointment.client}</TableCell>
-                      <TableCell className="px-6 py-4 text-sm text-muted-foreground">{appointment.service}</TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-muted-foreground">{service?.name || 'Serviço não encontrado'}</TableCell>
                       <TableCell className="px-6 py-4">
                         {staffMember && (
                            <Avatar className="h-10 w-10">
