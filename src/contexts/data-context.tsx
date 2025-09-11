@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { collection, onSnapshot, doc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
 import { Appointment, EmployeePerformance, Funcionario, PendingAppointment, Role, Service, Transaction } from '@/lib/data';
@@ -46,27 +46,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (authLoading) {
-        setLoading(true);
-        return;
+      setLoading(true);
+      return;
     }
 
     if (!user) {
-        // If no user, stop loading and clear data
-        setLoading(false);
-        setData({
-            services: [],
-            roles: [],
-            funcionarios: [],
-            confirmedAppointments: [],
-            pendingAppointments: [],
-            transactions: [],
-            employeePerformance: [],
-            saldoEmCaixa: 0,
-        });
-        return;
+      setLoading(false);
+      setData({
+        services: [],
+        roles: [],
+        funcionarios: [],
+        confirmedAppointments: [],
+        pendingAppointments: [],
+        transactions: [],
+        employeePerformance: [],
+        saldoEmCaixa: 0,
+      });
+      return;
     }
+    
+    setLoading(true);
 
-    const collections = {
+    const collections: { [key: string]: any } = {
         services: collection(db, 'services'),
         roles: collection(db, 'roles'),
         funcionarios: collection(db, 'funcionarios'),
@@ -76,37 +77,69 @@ export function DataProvider({ children }: { children: ReactNode }) {
         employeePerformance: collection(db, 'employeePerformance'),
     };
     
-    const singleDocs = {
+    const singleDocs: { [key: string]: any } = {
         saldoEmCaixa: doc(db, 'appState', 'saldoEmCaixa'),
     };
-    
-    // Create listeners for all collections
-    const unsubscribes = Object.entries(collections).map(([key, ref]) => 
-      onSnapshot(ref, (snapshot) => {
-        const items = snapshot.docs.map(doc => doc.data());
-        setData(prevData => ({ ...prevData, [key]: items }));
-      })
-    );
 
-    // Create listeners for all single documents
-    const unsubscribesDocs = Object.entries(singleDocs).map(([key, ref]) =>
-        onSnapshot(ref, (doc) => {
-            if(doc.exists()) {
-                const value = doc.data().value;
+    const listenersToAttach = { ...collections, ...singleDocs };
+    const totalListeners = Object.keys(listenersToAttach).length;
+    let loadedCount = 0;
+
+    const checkAllDataLoaded = () => {
+        loadedCount++;
+        if (loadedCount === totalListeners) {
+            setLoading(false);
+        }
+    };
+    
+    const unsubscribes = Object.entries(listenersToAttach).map(([key, ref]) => 
+      onSnapshot(ref, (snapshot: any) => {
+        if (!snapshot.exists || (snapshot.exists && snapshot.exists())) {
+            // This is a collection snapshot or a doc that exists
+            if (snapshot.docs) { // Collection
+                const items = snapshot.docs.map((doc: any) => doc.data());
+                setData(prevData => ({ ...prevData, [key]: items }));
+            } else if (snapshot.exists()) { // Single Doc
+                const value = snapshot.data().value;
                 setData(prevData => ({ ...prevData, [key]: value }));
             }
-        })
+        }
+        // For the initial load, we call checkAllDataLoaded inside the listener
+        // This ensures we only stop loading after the first batch of data is received.
+        // To prevent this from running on every update, we could add a flag.
+        if (loading) { // A simple way to ensure it only affects the initial load
+          checkAllDataLoaded();
+        }
+      }, (error) => {
+        console.error(`Error fetching ${key}: `, error);
+        // Also count errors so we don't get stuck loading
+        if (loading) {
+            checkAllDataLoaded();
+        }
+      })
     );
     
-    // Combine all unsubscribers
-    const allUnsubscribes = [...unsubscribes, ...unsubscribesDocs];
+    // In case some collections are empty, onSnapshot might not fire immediately.
+    // Let's pre-fetch with getDocs to ensure checkAllDataLoaded is called.
+    const initialFetch = async () => {
+        for (const key in listenersToAttach) {
+            const ref = listenersToAttach[key];
+            try {
+                // We don't need the data, just the confirmation of the fetch
+                if(ref.type === 'collection') {
+                  await getDocs(ref);
+                }
+            } catch (error) {
+                console.error(`Initial fetch failed for ${key}`, error);
+            }
+        }
+    };
 
-    // Set loading to false once initial listeners are set up
-    // A more robust solution might wait for the first snapshot of each
-    setLoading(false);
+    initialFetch();
+
 
     // Cleanup on unmount or when user changes
-    return () => allUnsubscribes.forEach(unsub => unsub());
+    return () => unsubscribes.forEach(unsub => unsub());
   }, [user, authLoading]);
 
   const value = { ...data, loading };
