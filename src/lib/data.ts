@@ -42,3 +42,21 @@ export const pendingAppointments: PendingAppointment[] = [
     { id: 'p2', client: 'Maria Santos', time: '15:00' },
     { id: 'p3', client: 'Pedro Costa', time: '17:00' },
 ];
+
+export type Service = {
+  id: string;
+  name: string;
+  price: number;
+  role: string;
+};
+
+export const services: Service[] = [
+  { id: 's1', name: 'Corte Social', price: 30, role: 'Barbeiro' },
+  { id: 's2', name: 'Corte de Cabelo Feminino', price: 60, role: 'Cabeleireira' },
+  { id: 's3', name: 'Manicure Simples', price: 25, role: 'Manicure' },
+  { id: 's4', name: 'Pedicure Simples', price: 30, role: 'Manicure' },
+  { id: 's5', name: 'Design de Barba', price: 25, role: 'Barbeiro' },
+  { id: 's6', name: 'Limpeza de Pele', price: 80, role: 'Esteticista' },
+  { id: 's7', name: 'Coloração', price: 120, role: 'Cabeleireira' },
+  { id: 's8', name: 'Recepção', price: 0, role: 'Recepcionista' },
+];
