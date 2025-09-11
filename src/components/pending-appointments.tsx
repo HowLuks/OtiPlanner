@@ -148,7 +148,7 @@ function PendingAppointmentCard({
       </div>
       <div className="flex-1">
         <p className="font-medium">{appointment.client} - {appointment.service.name}</p>
-        <p className="text-sm text-muted-foreground">{format(new Date(`${appointment.date}T00:00:00`), 'dd/MM/yyyy')} - {appointment.time}</p>
+        <p className="text-sm text-muted-foreground">{format(new Date(appointment.date), 'dd/MM/yyyy')} - {appointment.time}</p>
       </div>
       <div className="flex gap-2">
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -174,7 +174,7 @@ function PendingAppointmentCard({
               </div>
               <div className="space-y-1">
                   <Label>Data</Label>
-                  <p className="text-sm">{format(new Date(`${appointment.date}T00:00:00`), 'dd/MM/yyyy')} - {appointment.time}</p>
+                  <p className="text-sm">{format(new Date(appointment.date), 'dd/MM/yyyy')} - {appointment.time}</p>
               </div>
               <div className="space-y-1 col-span-2">
                   <Label>Serviço</Label>

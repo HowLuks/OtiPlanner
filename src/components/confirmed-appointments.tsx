@@ -86,5 +86,3 @@ export function ConfirmedAppointments({ selectedDate }: ConfirmedAppointmentsPro
     </div>
   );
 }
-
-    
