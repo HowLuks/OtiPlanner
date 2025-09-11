@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 
 
 export default function ServicosPage() {
@@ -39,21 +39,18 @@ export default function ServicosPage() {
   const [newServiceDuration, setNewServiceDuration] = useState<number | ''>(30);
 
   useEffect(() => {
-    const fetchData = async () => {
-        try {
-            const servicesCollection = collection(db, 'services');
-            const servicesSnapshot = await getDocs(servicesCollection);
-            setServices(servicesSnapshot.docs.map(doc => doc.data() as Service));
+    const unsubServices = onSnapshot(collection(db, 'services'), (snapshot) => {
+        setServices(snapshot.docs.map(doc => doc.data() as Service));
+    });
 
-            const rolesCollection = collection(db, 'roles');
-            const rolesSnapshot = await getDocs(rolesCollection);
-            setRoles(rolesSnapshot.docs.map(doc => doc.data() as Role));
-        } catch (error) {
-            console.error("Error fetching data from Firestore:", error);
-        }
+    const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
+        setRoles(snapshot.docs.map(doc => doc.data() as Role));
+    });
+
+    return () => {
+        unsubServices();
+        unsubRoles();
     };
-
-    fetchData();
   }, []);
 
 
@@ -68,7 +65,6 @@ export default function ServicosPage() {
         duration: Number(newServiceDuration),
       };
       await setDoc(doc(db, 'services', newServiceId), newService);
-      setServices([...services, newService]);
       setNewServiceName('');
       setNewServicePrice('');
       setNewServiceDuration(30);
@@ -83,7 +79,9 @@ export default function ServicosPage() {
     return roles.find(role => role.id === roleId)?.name || 'N/A';
   }
 
-  if (!services || !roles) {
+  const isLoading = !services || !roles;
+
+  if (isLoading) {
       return (
           <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">

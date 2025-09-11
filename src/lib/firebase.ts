@@ -1,6 +1,7 @@
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { initialFuncionarios, initialRoles, initialServices, initialConfirmedAppointments, initialPendingAppointments, initialTransactions, initialEmployeePerformance, initialSaldoEmCaixa } from './data';
 
 const firebaseConfig = {
@@ -16,6 +17,8 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
+const auth = getAuth(app);
+
 
 // Function to seed initial data
 export const seedDatabase = async () => {
@@ -78,4 +81,4 @@ export const seedDatabase = async () => {
 };
 
 
-export { db };
+export { db, auth };

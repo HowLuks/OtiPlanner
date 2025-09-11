@@ -15,11 +15,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash } from "lucide-react";
 import { Funcionario, Appointment, Service } from "@/lib/data";
+import { db } from "@/lib/firebase";
+import { doc, deleteDoc } from "firebase/firestore";
+
 
 interface ConfirmedAppointmentsProps {
   selectedDate: Date | undefined;
   confirmedAppointments: Appointment[];
-  setConfirmedAppointments: (value: Appointment[] | ((val: Appointment[]) => Appointment[])) => void;
   staff: Funcionario[];
   services: Service[];
   updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
@@ -28,7 +30,6 @@ interface ConfirmedAppointmentsProps {
 export function ConfirmedAppointments({ 
   selectedDate, 
   confirmedAppointments,
-  setConfirmedAppointments, 
   staff, 
   services,
   updateStaffSales,
@@ -52,9 +53,11 @@ export function ConfirmedAppointments({
       .sort((a, b) => a.time.localeCompare(b.time));
   }, [confirmedAppointments, selectedDate]);
 
-  const handleDelete = (appointmentToDelete: Appointment) => {
-    setConfirmedAppointments(prev => prev.filter(app => app.id !== appointmentToDelete.id));
-    updateStaffSales(appointmentToDelete.staffId, appointmentToDelete.serviceId, 'subtract');
+  const handleDelete = async (appointmentToDelete: Appointment) => {
+    if(window.confirm("Tem certeza que deseja excluir este agendamento?")){
+      await deleteDoc(doc(db, "confirmedAppointments", appointmentToDelete.id));
+      await updateStaffSales(appointmentToDelete.staffId, appointmentToDelete.serviceId, 'subtract');
+    }
   };
 
   return (
@@ -108,7 +111,7 @@ export function ConfirmedAppointments({
                     <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                       Nenhum agendamento para esta data.
                     </TableCell>
-                  </TableRow>
+                  </TableRow>              
               )}
             </TableBody>
           </Table>

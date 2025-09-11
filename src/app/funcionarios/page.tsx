@@ -20,7 +20,7 @@ import { Funcionario, Role } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch, onSnapshot } from 'firebase/firestore';
 
 interface FuncionarioCardProps {
   funcionario: Funcionario;
@@ -182,35 +182,23 @@ export default function FuncionariosPage() {
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
 
    useEffect(() => {
-    const fetchData = async () => {
-        try {
-            const funcCollection = collection(db, 'funcionarios');
-            const funcSnapshot = await getDocs(funcCollection);
-            setFuncionarios(funcSnapshot.docs.map(doc => doc.data() as Funcionario));
+    const unsubFunc = onSnapshot(collection(db, 'funcionarios'), (snapshot) => {
+        setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario));
+    });
 
-            const rolesCollection = collection(db, 'roles');
-            const rolesSnapshot = await getDocs(rolesCollection);
-            setRoles(rolesSnapshot.docs.map(doc => doc.data() as Role));
-        } catch (error) {
-            console.error("Error fetching data from Firestore:", error);
-        }
+    const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
+        setRoles(snapshot.docs.map(doc => doc.data() as Role));
+    });
+    
+    return () => {
+        unsubFunc();
+        unsubRoles();
     };
-
-    fetchData();
   }, []);
 
-  const refetchData = async () => {
-    const funcCollection = collection(db, 'funcionarios');
-    const funcSnapshot = await getDocs(funcCollection);
-    setFuncionarios(funcSnapshot.docs.map(doc => doc.data() as Funcionario));
+  const isLoading = !roles || !funcionarios;
 
-    const rolesCollection = collection(db, 'roles');
-    const rolesSnapshot = await getDocs(rolesCollection);
-    setRoles(rolesSnapshot.docs.map(doc => doc.data() as Role));
-  };
-
-
-  if (!roles || !funcionarios) {
+  if (isLoading) {
       return (
         <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
@@ -244,13 +232,12 @@ export default function FuncionariosPage() {
             name: newRoleName.trim(),
         };
       await setDoc(doc(db, 'roles', newRoleId), newRole);
-      setRoles([...roles, newRole]);
       setNewRoleName('');
     }
   };
 
   const handleAddNewEmployee = async () => {
-    if (newEmployeeName.trim() && newEmployeeRoleId) {
+    if (newEmployeeName.trim() && newEmployeeRoleId && funcionarios) {
       const newEmployeeId = `func-${funcionarios.length + 1 + Date.now()}`;
       const newEmployee: Funcionario = {
         id: newEmployeeId,
@@ -263,7 +250,6 @@ export default function FuncionariosPage() {
         salesTarget: Number(newEmployeeSalesTarget) || 2000,
       };
       await setDoc(doc(db, 'funcionarios', newEmployeeId), newEmployee);
-      setFuncionarios([...funcionarios, newEmployee]);
       setNewEmployeeName('');
       setNewEmployeeRoleId('');
       setNewEmployeePhoto(null);
@@ -274,12 +260,10 @@ export default function FuncionariosPage() {
   const handleUpdateFuncionario = async (updatedFuncionario: Funcionario) => {
     const funcDocRef = doc(db, "funcionarios", updatedFuncionario.id);
     await setDoc(funcDocRef, updatedFuncionario, { merge: true });
-    setFuncionarios(funcionarios.map(f => f.id === updatedFuncionario.id ? updatedFuncionario : f));
   };
 
   const handleDeleteEmployee = async (id: string) => {
     await deleteDoc(doc(db, "funcionarios", id));
-    setFuncionarios(funcionarios.filter(f => f.id !== id));
   };
   
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, setPhoto: (url: string) => void) => {

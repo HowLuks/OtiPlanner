@@ -20,16 +20,12 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 function PendingAppointmentCard({ 
   appointment,
   confirmedAppointments,
-  onConfirm,
-  onReject,
   staff,
   services,
   updateStaffSales,
 }: { 
   appointment: PendingAppointment;
   confirmedAppointments: Appointment[];
-  onConfirm: (appointmentId: string, newConfirmedAppointment: Appointment) => void;
-  onReject: (id: string) => void;
   staff: Funcionario[];
   services: Service[];
   updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
@@ -77,7 +73,7 @@ function PendingAppointmentCard({
       return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
     });
   };
-
+  
   const handleConfirm = () => {
     if (!selectedStaffId) {
       alert('Selecione o profissional para confirmar.');
@@ -107,8 +103,13 @@ function PendingAppointmentCard({
             serviceId: appointment.serviceId,
             staffId: selectedStaffId,
           };
-          onConfirm(appointment.id, newConfirmedAppointment);
-          updateStaffSales(selectedStaffId, appointment.serviceId, 'add');
+          
+          // Atomically move from pending to confirmed
+          await setDoc(doc(db, 'confirmedAppointments', newConfirmedAppointment.id), newConfirmedAppointment);
+          await deleteDoc(doc(db, 'pendingAppointments', appointment.id));
+
+          await updateStaffSales(selectedStaffId, appointment.serviceId, 'add');
+
           setIsOpen(false);
           toast({
             title: `Agendamento Aceito`,
@@ -137,7 +138,7 @@ function PendingAppointmentCard({
         });
         
         if (result.success) {
-          onReject(appointment.id);
+           await deleteDoc(doc(db, 'pendingAppointments', appointment.id));
           toast({
             title: `Agendamento Rejeitado`,
             description: result.message,
@@ -250,35 +251,17 @@ function PendingAppointmentCard({
 
 export function PendingAppointments({ 
   pendingAppointments,
-  setPendingAppointments,
   confirmedAppointments,
-  setConfirmedAppointments,
   services,
   staff,
   updateStaffSales,
-  refetchAppointments
 }: { 
   pendingAppointments: PendingAppointment[];
-  setPendingAppointments: (value: PendingAppointment[] | ((val: PendingAppointment[]) => PendingAppointment[])) => void;
   confirmedAppointments: Appointment[];
-  setConfirmedAppointments: (value: Appointment[] | ((val: Appointment[]) => Appointment[])) => void;
   services: Service[];
   staff: Funcionario[];
   updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
-  refetchAppointments: () => Promise<void>;
 }) {
-
-  const handleConfirm = async (pendingAppointmentId: string, newConfirmedAppointment: Appointment) => {
-    // Add to confirmed and remove from pending
-    await setDoc(doc(db, 'confirmedAppointments', newConfirmedAppointment.id), newConfirmedAppointment);
-    await deleteDoc(doc(db, 'pendingAppointments', pendingAppointmentId));
-    await refetchAppointments();
-  };
-
-  const handleReject = async (appointmentId: string) => {
-    await deleteDoc(doc(db, 'pendingAppointments', appointmentId));
-    await refetchAppointments();
-  };
 
   return (
     <Card className="bg-card border-border h-fit">
@@ -293,8 +276,6 @@ export function PendingAppointments({
                 key={appointment.id} 
                 appointment={appointment} 
                 confirmedAppointments={confirmedAppointments}
-                onConfirm={handleConfirm}
-                onReject={handleReject}
                 staff={staff}
                 services={services}
                 updateStaffSales={updateStaffSales}

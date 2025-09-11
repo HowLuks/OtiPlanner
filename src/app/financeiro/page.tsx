@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Transaction, EmployeePerformance } from "@/lib/data";
 import { Skeleton } from '@/components/ui/skeleton';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function FinanceiroPage() {
@@ -13,24 +13,23 @@ export default function FinanceiroPage() {
     const [employeePerformance, setEmployeePerformance] = useState<EmployeePerformance[] | null>(null);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const transCollection = collection(db, 'transactions');
-                const transSnapshot = await getDocs(transCollection);
-                setTransactions(transSnapshot.docs.map(doc => doc.data() as Transaction));
+        const unsubTrans = onSnapshot(collection(db, 'transactions'), (snapshot) => {
+            setTransactions(snapshot.docs.map(doc => doc.data() as Transaction));
+        });
 
-                const perfCollection = collection(db, 'employeePerformance');
-                const perfSnapshot = await getDocs(perfCollection);
-                setEmployeePerformance(perfSnapshot.docs.map(doc => doc.data() as EmployeePerformance));
-            } catch (error) {
-                 console.error("Error fetching data from Firestore:", error);
-            }
+        const unsubPerf = onSnapshot(collection(db, 'employeePerformance'), (snapshot) => {
+            setEmployeePerformance(snapshot.docs.map(doc => doc.data() as EmployeePerformance));
+        });
+
+        return () => {
+            unsubTrans();
+            unsubPerf();
         };
-
-        fetchData();
     }, []);
 
-    if (!transactions || !employeePerformance) {
+    const isLoading = !transactions || !employeePerformance;
+
+    if (isLoading) {
         return (
              <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
                 <div className="mx-auto max-w-7xl">

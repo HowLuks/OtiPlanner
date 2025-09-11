@@ -1,7 +1,8 @@
 'use client'
 
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +15,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { usePathname } from "next/navigation";
+import { auth } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
+
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -27,6 +31,27 @@ const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
 
 export function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+      toast({
+        title: "Você saiu!",
+        description: "Você foi desconectado com sucesso.",
+      });
+      router.push('/login');
+    } catch (error) {
+      console.error("Erro ao sair:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao sair",
+        description: "Não foi possível fazer o logout. Tente novamente.",
+      });
+    }
+  };
+
 
   return (
     <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-border px-6 lg:px-10 py-4">
@@ -48,6 +73,10 @@ export function AppHeader() {
         ))}
       </nav>
       <div className="flex items-center gap-4">
+        <Button onClick={handleSignOut} variant="ghost" size="icon" className="hidden lg:flex">
+          <LogOut className="h-5 w-5" />
+          <span className="sr-only">Sair</span>
+        </Button>
         <div className="lg:hidden">
             <Sheet>
                 <SheetTrigger asChild>
@@ -56,9 +85,9 @@ export function AppHeader() {
                         <span className="sr-only">Abrir menu</span>
                     </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="bg-card border-r border-border p-6">
+                <SheetContent side="left" className="bg-card border-r border-border p-6 flex flex-col">
                     <SheetTitle className="sr-only">Menu</SheetTitle>
-                    <nav className="flex flex-col gap-6 mt-8">
+                    <nav className="flex flex-col gap-6 mt-8 flex-1">
                         {navLinks.map((link) => (
                           <Link
                             key={link.label}
@@ -71,6 +100,10 @@ export function AppHeader() {
                           </Link>
                         ))}
                     </nav>
+                     <Button onClick={handleSignOut} variant="outline" className="w-full">
+                      <LogOut className="mr-2 h-5 w-5" />
+                      Sair
+                    </Button>
                 </SheetContent>
             </Sheet>
         </div>

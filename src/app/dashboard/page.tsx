@@ -9,7 +9,7 @@ import { DollarSign, TrendingUp, Users } from "lucide-react";
 import Image from "next/image";
 import { Funcionario, Role } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export default function DashboardPage() {
@@ -18,30 +18,25 @@ export default function DashboardPage() {
     const [roles, setRoles] = useState<Role[] | null>(null);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                // Fetch Funcionarios
-                const funcCollection = collection(db, 'funcionarios');
-                const funcSnapshot = await getDocs(funcCollection);
-                setFuncionarios(funcSnapshot.docs.map(doc => doc.data() as Funcionario));
+        const unsubFunc = onSnapshot(collection(db, 'funcionarios'), (snapshot) => {
+            setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario));
+        });
 
-                // Fetch Roles
-                const rolesCollection = collection(db, 'roles');
-                const rolesSnapshot = await getDocs(rolesCollection);
-                setRoles(rolesSnapshot.docs.map(doc => doc.data() as Role));
+        const unsubRoles = onSnapshot(collection(db, 'roles'), (snapshot) => {
+            setRoles(snapshot.docs.map(doc => doc.data() as Role));
+        });
 
-                // Fetch Saldo
-                const saldoDoc = await getDoc(doc(db, 'appState', 'saldoEmCaixa'));
-                if (saldoDoc.exists()) {
-                    setSaldoEmCaixa(saldoDoc.data().value);
-                }
-
-            } catch (error) {
-                console.error("Error fetching data from Firestore:", error);
+        const unsubSaldo = onSnapshot(doc(db, 'appState', 'saldoEmCaixa'), (doc) => {
+            if (doc.exists()) {
+                setSaldoEmCaixa(doc.data().value);
             }
+        });
+        
+        return () => {
+            unsubFunc();
+            unsubRoles();
+            unsubSaldo();
         };
-
-        fetchData();
     }, []);
 
     const getRoleName = (roleId: string) => {
@@ -49,7 +44,9 @@ export default function DashboardPage() {
         return roles.find(role => role.id === roleId)?.name || 'N/A';
     }
 
-    if (!funcionarios || saldoEmCaixa === null || !roles) {
+    const isLoading = !funcionarios || saldoEmCaixa === null || !roles;
+
+    if (isLoading) {
         return (
           <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
             <div className="mb-8">

@@ -17,7 +17,7 @@ import { Plus } from 'lucide-react';
 import { Service, Funcionario, Appointment, PendingAppointment, Role } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db, seedDatabase } from '@/lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc, writeBatch, onSnapshot } from 'firebase/firestore';
 
 
 export default function Home() {
@@ -38,62 +38,45 @@ export default function Home() {
   const [appointmentStatus, setAppointmentStatus] = useState<'confirmed' | 'pending'>('pending');
   const [conflictError, setConflictError] = useState('');
   
-  useEffect(() => {
-      const fetchData = async () => {
-          setIsLoading(true);
-          try {
-              // Seed data if necessary, then fetch
-              await seedDatabase();
+ useEffect(() => {
+    const seedAndFetch = async () => {
+      await seedDatabase(); // Seed data if necessary
+    };
+    seedAndFetch();
 
-              const collections = {
-                  services: collection(db, 'services'),
-                  roles: collection(db, 'roles'),
-                  funcionarios: collection(db, 'funcionarios'),
-                  confirmedAppointments: collection(db, 'confirmedAppointments'),
-                  pendingAppointments: collection(db, 'pendingAppointments'),
-              };
+    const collections = {
+      services: collection(db, 'services'),
+      roles: collection(db, 'roles'),
+      funcionarios: collection(db, 'funcionarios'),
+      confirmedAppointments: collection(db, 'confirmedAppointments'),
+      pendingAppointments: collection(db, 'pendingAppointments'),
+    };
 
-              const [
-                  servicesSnap,
-                  rolesSnap,
-                  funcionariosSnap,
-                  confirmedSnap,
-                  pendingSnap,
-              ] = await Promise.all([
-                  getDocs(collections.services),
-                  getDocs(collections.roles),
-                  getDocs(collections.funcionarios),
-                  getDocs(collections.confirmedAppointments),
-                  getDocs(collections.pendingAppointments),
-              ]);
+    const unsubscribes = [
+      onSnapshot(collections.services, snapshot => setServices(snapshot.docs.map(doc => doc.data() as Service))),
+      onSnapshot(collections.roles, snapshot => setRoles(snapshot.docs.map(doc => doc.data() as Role))),
+      onSnapshot(collections.funcionarios, snapshot => setFuncionarios(snapshot.docs.map(doc => doc.data() as Funcionario))),
+      onSnapshot(collections.confirmedAppointments, snapshot => setConfirmedAppointments(snapshot.docs.map(doc => doc.data() as Appointment))),
+      onSnapshot(collections.pendingAppointments, snapshot => setPendingAppointments(snapshot.docs.map(doc => doc.data() as PendingAppointment))),
+    ];
+    
+    // Check if all initial data is loaded
+     const checkLoading = () => {
+        if (services && roles && funcionarios && confirmedAppointments && pendingAppointments) {
+            setIsLoading(false);
+        }
+     }
+     // Give it a moment for the onSnapshot to fire
+     setTimeout(checkLoading, 1500);
 
-              setServices(servicesSnap.docs.map(doc => doc.data() as Service));
-              setRoles(rolesSnap.docs.map(doc => doc.data() as Role));
-              setFuncionarios(funcionariosSnap.docs.map(doc => doc.data() as Funcionario));
-              setConfirmedAppointments(confirmedSnap.docs.map(doc => doc.data() as Appointment));
-              setPendingAppointments(pendingSnap.docs.map(doc => doc.data() as PendingAppointment));
 
-          } catch (error) {
-              console.error("Error fetching data from Firestore:", error);
-          } finally {
-              setIsLoading(false);
-          }
-      };
+    // Cleanup on unmount
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [services, roles, funcionarios, confirmedAppointments, pendingAppointments]);
 
-      fetchData();
-  }, []);
 
   const refetchAppointments = async () => {
-      const confirmedSnap = await getDocs(collection(db, 'confirmedAppointments'));
-      setConfirmedAppointments(confirmedSnap.docs.map(doc => doc.data() as Appointment));
-      
-      const pendingSnap = await getDocs(collection(db, 'pendingAppointments'));
-      setPendingAppointments(pendingSnap.docs.map(doc => doc.data() as PendingAppointment));
-  }
-
-  const refetchFuncionarios = async () => {
-      const funcionariosSnap = await getDocs(collection(db, 'funcionarios'));
-      setFuncionarios(funcionariosSnap.docs.map(doc => doc.data() as Funcionario));
+      // This is now handled by onSnapshot, but we can keep it for optimistic updates if needed
   }
 
   const selectedService = useMemo(() => {
@@ -169,7 +152,6 @@ export default function Home() {
     
     const funcDocRef = doc(db, 'funcionarios', staffId);
     await setDoc(funcDocRef, updatedFunc, { merge: true });
-    await refetchFuncionarios();
   };
 
   const handleCreateAppointment = async () => {
@@ -214,7 +196,6 @@ export default function Home() {
       await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
     }
 
-    await refetchAppointments();
     resetForm();
     // This is a bit of a hack to make DialogClose work with the conditional error
     if (!conflictError) {
@@ -347,20 +328,6 @@ export default function Home() {
             <ConfirmedAppointments 
               selectedDate={selectedDate}
               confirmedAppointments={confirmedAppointments || []}
-              setConfirmedAppointments={async (apps) => {
-                  const newApps = typeof apps === 'function' ? apps(confirmedAppointments || []) : apps;
-                  const batch = writeBatch(db);
-                  // This is a simplified update. A real app would handle deletions and additions more granularly.
-                  const currentIds = (confirmedAppointments || []).map(a => a.id);
-                  const newIds = newApps.map(a => a.id);
-                  const toDelete = currentIds.filter(id => !newIds.includes(id));
-                  
-                  toDelete.forEach(id => batch.delete(doc(db, 'confirmedAppointments', id)));
-                  newApps.forEach(app => batch.set(doc(db, 'confirmedAppointments', app.id), app));
-
-                  await batch.commit();
-                  await refetchAppointments();
-              }}
               services={services || []}
               staff={funcionarios || []}
               updateStaffSales={updateStaffSales}
@@ -378,31 +345,10 @@ export default function Home() {
           ) : (
              <PendingAppointments
                 pendingAppointments={pendingAppointments || []}
-                setPendingAppointments={async (apps) => {
-                     const newApps = typeof apps === 'function' ? apps(pendingAppointments || []) : apps;
-                      const batch = writeBatch(db);
-                      const currentIds = (pendingAppointments || []).map(a => a.id);
-                      const newIds = newApps.map(a => a.id);
-                      const toDelete = currentIds.filter(id => !newIds.includes(id));
-                      
-                      toDelete.forEach(id => batch.delete(doc(db, 'pendingAppointments', id)));
-                      newApps.forEach(app => batch.set(doc(db, 'pendingAppointments', app.id), app));
-
-                      await batch.commit();
-                      await refetchAppointments();
-                }}
                 confirmedAppointments={confirmedAppointments || []}
-                setConfirmedAppointments={async (apps) => {
-                  const newApps = typeof apps === 'function' ? apps(confirmedAppointments || []) : apps;
-                  const batch = writeBatch(db);
-                  newApps.forEach(app => batch.set(doc(db, 'confirmedAppointments', app.id), app));
-                  await batch.commit();
-                  await refetchAppointments();
-                }}
                 services={services || []}
                 staff={funcionarios || []}
                 updateStaffSales={updateStaffSales}
-                refetchAppointments={refetchAppointments}
             />
           )}
         </aside>
