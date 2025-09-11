@@ -112,7 +112,7 @@ function PendingAppointmentCard({
         <Clock className="text-white h-6 w-6" />
       </div>
       <div className="flex-1">
-        <p className="font-medium">{appointment.client} - {appointment.service.name}</p>
+        <p className="font-medium">{appointment.client} - {appointment.service?.name}</p>
         <p className="text-sm text-muted-foreground">{appointment.time}</p>
       </div>
       <div className="flex gap-2">
@@ -139,7 +139,7 @@ function PendingAppointmentCard({
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">Serviço</Label>
-                <span className="col-span-3">{appointment.service.name}</span>
+                <span className="col-span-3">{appointment.service?.name}</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="staff" className="text-right">
@@ -206,6 +206,7 @@ export function PendingAppointments({
     setPendingAppointments(current => current.filter(app => app.id !== appointmentId));
   };
 
+  const validAppointments = isClient ? pendingAppointments.filter(app => app.service && app.service.name) : [];
 
   return (
     <Card className="bg-card border-border h-fit">
@@ -213,9 +214,9 @@ export function PendingAppointments({
         <CardTitle className="font-headline text-2xl font-bold">Agendamentos Pendentes</CardTitle>
       </CardHeader>
       <CardContent>
-        {isClient && pendingAppointments.length > 0 ? (
+        {validAppointments.length > 0 ? (
           <div className="space-y-4">
-            {pendingAppointments.map((appointment) => (
+            {validAppointments.map((appointment) => (
               <PendingAppointmentCard 
                 key={appointment.id} 
                 appointment={appointment} 

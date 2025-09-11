@@ -1,18 +1,27 @@
 import { useEffect, useState } from 'react';
 
 function useLocalStorage<T>(key: string, initialValue: T) {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+
+  useEffect(() => {
+    // This effect runs only on the client, after the initial render.
+    let item;
     try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      item = window.localStorage.getItem(key);
+      // If item exists, parse it. If not, use initialValue and set it in localStorage.
+      const valueToStore = item ? JSON.parse(item) : initialValue;
+      setStoredValue(valueToStore);
+      if (!item) {
+        window.localStorage.setItem(key, JSON.stringify(initialValue));
+      }
     } catch (error) {
       console.error(error);
-      return initialValue;
+      // If parsing fails, use initialValue and reset localStorage.
+      setStoredValue(initialValue);
+      window.localStorage.setItem(key, JSON.stringify(initialValue));
     }
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   const setValue = (value: T | ((val: T) => T)) => {
     try {
@@ -25,27 +34,6 @@ function useLocalStorage<T>(key: string, initialValue: T) {
       console.error(error);
     }
   };
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-        const item = window.localStorage.getItem(key);
-        if (item) {
-            try {
-                setStoredValue(JSON.parse(item));
-            } catch (error) {
-                console.error("Error parsing JSON from localStorage", error);
-                // If parsing fails, re-initialize with initialValue
-                window.localStorage.setItem(key, JSON.stringify(initialValue));
-                setStoredValue(initialValue);
-            }
-        } else {
-             window.localStorage.setItem(key, JSON.stringify(initialValue));
-             setStoredValue(initialValue);
-        }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-
 
   return [storedValue, setValue] as const;
 }
