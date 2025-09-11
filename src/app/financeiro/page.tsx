@@ -22,7 +22,7 @@ export default function FinanceiroPage() {
             <div className="mx-auto max-w-7xl">
                 <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
                     <div>
-                        <h1 className="text-4xl font-bold tracking-tight">Fluxo de Caixa</h1>
+                        <h1 className="text-4xl font-bold tracking-tight">Financeiro</h1>
                     </div>
                     <Button className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-105">
                         <Plus className="mr-2" />

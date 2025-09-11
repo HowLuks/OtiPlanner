@@ -108,7 +108,7 @@ export default function FuncionariosPage() {
       <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Gerenciamento de Funcionários</h2>
+            <h2 className="text-3xl font-bold tracking-tight">Funcionários</h2>
           </div>
           <div className="flex gap-2 mt-4 md:mt-0">
              <Dialog>
