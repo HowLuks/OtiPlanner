@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -9,9 +12,24 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { services } from "@/lib/data";
+import { services as initialServices, roles as availableRoles, Service } from "@/lib/data";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 export default function ServicosPage() {
+  const [services, setServices] = useState<Service[]>(initialServices);
+  const [roles, setRoles] = useState<string[]>(availableRoles);
+
   return (
     <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
@@ -19,10 +37,47 @@ export default function ServicosPage() {
           <h2 className="text-3xl font-bold tracking-tight">Serviços</h2>
           <p className="text-muted-foreground mt-1">Gerencie os serviços oferecidos pelo seu estabelecimento.</p>
         </div>
-        <Button className="mt-4 md:mt-0">
-          <Plus className="mr-2" />
-          Novo Serviço
-        </Button>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button className="mt-4 md:mt-0">
+              <Plus className="mr-2" />
+              Novo Serviço
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo Serviço</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="service-name">Nome do Serviço</Label>
+                  <Input id="service-name" placeholder="Ex: Corte Social" />
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="service-price">Valor (R$)</Label>
+                  <Input id="service-price" type="number" placeholder="Ex: 30.00" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role-select">Função</Label>
+                  <Select>
+                    <SelectTrigger id="role-select">
+                      <SelectValue placeholder="Selecione uma função" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map(role => (
+                        <SelectItem key={role} value={role}>{role}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end pt-4">
+                  <DialogClose asChild>
+                    <Button>Salvar Serviço</Button>
+                  </DialogClose>
+                </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>

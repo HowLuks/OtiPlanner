@@ -50,6 +50,14 @@ export type Service = {
   role: string;
 };
 
+export const roles: string[] = [
+  'Barbeiro',
+  'Cabeleireira',
+  'Manicure',
+  'Esteticista',
+  'Recepcionista',
+];
+
 export const services: Service[] = [
   { id: 's1', name: 'Corte Social', price: 30, role: 'Barbeiro' },
   { id: 's2', name: 'Corte de Cabelo Feminino', price: 60, role: 'Cabeleireira' },
@@ -58,5 +66,4 @@ export const services: Service[] = [
   { id: 's5', name: 'Design de Barba', price: 25, role: 'Barbeiro' },
   { id: 's6', name: 'Limpeza de Pele', price: 80, role: 'Esteticista' },
   { id: 's7', name: 'Coloração', price: 120, role: 'Cabeleireira' },
-  { id: 's8', name: 'Recepção', price: 0, role: 'Recepcionista' },
 ];
