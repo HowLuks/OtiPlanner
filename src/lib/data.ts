@@ -51,6 +51,8 @@ export const initialPendingAppointments: PendingAppointment[] = [
     { id: 'p1', client: 'João Almeida', time: '11:00', service: 'Corte Social' },
     { id: 'p2', client: 'Maria Santos', time: '15:00', service: 'Manicure Simples' },
     { id: 'p3', client: 'Pedro Costa', time: '17:00', service: 'Limpeza de Pele' },
+    { id: 'p4', client: 'Juliana Lima', time: '09:00', service: 'Coloração' },
+    { id: 'p5', client: 'Ricardo Alves', time: '13:00', service: 'Design de Barba' },
 ];
 
 export type Service = {
