@@ -16,70 +16,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { roles as availableRoles } from "@/lib/data";
+import { initialRoles, initialFuncionarios, Funcionario } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
-
-type Funcionario = {
-  id: string;
-  name: string;
-  role: string;
-  avatarUrl: string;
-  avatarHint: string;
-  salesGoal: number;
-  salesValue: number;
-  salesTarget: number;
-  online: boolean;
-};
+import useLocalStorage from '@/lib/storage';
 
 export default function FuncionariosPage() {
-  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([
-    {
-      id: "1",
-      name: "Mariana Silva",
-      role: "Cabeleireira",
-      avatarUrl: "https://picsum.photos/seed/5/112/112",
-      avatarHint: "woman portrait",
-      salesGoal: 75,
-      salesValue: 3750,
-      salesTarget: 5000,
-      online: true,
-    },
-    {
-      id: "2",
-      name: "Lucas Oliveira",
-      role: "Barbeiro",
-      avatarUrl: "https://picsum.photos/seed/6/112/112",
-      avatarHint: "man portrait",
-      salesGoal: 50,
-      salesValue: 2000,
-      salesTarget: 4000,
-      online: true,
-    },
-    {
-      id: "3",
-      name: "Juliana Santos",
-      role: "Manicure",
-      avatarUrl: "https://picsum.photos/seed/7/112/112",
-      avatarHint: "woman portrait",
-      salesGoal: 90,
-      salesValue: 5400,
-      salesTarget: 6000,
-      online: true,
-    },
-    {
-      id: "4",
-      name: "Camila Pereira",
-      role: "Esteticista",
-      avatarUrl: "https://picsum.photos/seed/9/112/112",
-      avatarHint: "woman portrait",
-      salesGoal: 80,
-      salesValue: 3600,
-      salesTarget: 4500,
-      online: true,
-    },
-  ]);
-
-  const [roles, setRoles] = useState(availableRoles);
+  const [funcionarios, setFuncionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
+  const [roles, setRoles] = useLocalStorage<string[]>('roles', initialRoles);
+  
   const [selectedFuncionario, setSelectedFuncionario] = useState<Funcionario | null>(null);
   const [newEmployeeRole, setNewEmployeeRole] = useState('');
   const [editEmployeeRole, setEditEmployeeRole] = useState('');

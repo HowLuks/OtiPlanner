@@ -1,3 +1,5 @@
+'use client'
+
 import {
   Table,
   TableBody,
@@ -8,13 +10,18 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { confirmedAppointments, staff, Staff } from "@/lib/data";
+import { initialConfirmedAppointments, initialStaff, Staff, Appointment } from "@/lib/data";
+import useLocalStorage from "@/lib/storage";
 
-const getStaffMember = (staffId: string): Staff | undefined => {
+
+const getStaffMember = (staff: Staff[], staffId: string): Staff | undefined => {
   return staff.find(s => s.id === staffId);
 };
 
 export function ConfirmedAppointments() {
+  const [confirmedAppointments] = useLocalStorage<Appointment[]>('confirmedAppointments', initialConfirmedAppointments);
+  const [staff] = useLocalStorage<Staff[]>('staff', initialStaff);
+
   return (
     <div className="mt-8">
       <h3 className="text-2xl font-bold mb-4 font-headline">Agendamentos Confirmados</h3>
@@ -31,7 +38,7 @@ export function ConfirmedAppointments() {
             </TableHeader>
             <TableBody>
               {confirmedAppointments.map((appointment) => {
-                const staffMember = getStaffMember(appointment.staffId);
+                const staffMember = getStaffMember(staff, appointment.staffId);
                 return (
                   <TableRow key={appointment.id}>
                     <TableCell className="px-6 py-4 text-sm text-muted-foreground">{appointment.time}</TableCell>

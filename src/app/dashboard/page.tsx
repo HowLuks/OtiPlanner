@@ -6,67 +6,18 @@ import { DonutChart, DonutChartCell } from "@/components/donut-chart";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DollarSign, TrendingUp, Users } from "lucide-react";
 import Image from "next/image";
-
-const funcionarios = [
-  {
-    id: "1",
-    name: "Mariana Silva",
-    role: "Cabeleireira",
-    avatarUrl: "https://picsum.photos/seed/5/112/112",
-    avatarHint: "woman portrait",
-    salesGoal: 75,
-    salesValue: 3750,
-    salesTarget: 5000,
-  },
-  {
-    id: "2",
-    name: "Lucas Oliveira",
-    role: "Barbeiro",
-    avatarUrl: "https://picsum.photos/seed/6/112/112",
-    avatarHint: "man portrait",
-    salesGoal: 50,
-    salesValue: 2000,
-    salesTarget: 4000,
-  },
-  {
-    id: "3",
-    name: "Juliana Santos",
-    role: "Manicure",
-    avatarUrl: "https://picsum.photos/seed/7/112/112",
-    avatarHint: "woman portrait",
-    salesGoal: 90,
-    salesValue: 5400,
-    salesTarget: 6000,
-  },
-  {
-    id: "4",
-    name: "Ricardo Almeida",
-    role: "Recepcionista",
-    avatarUrl: "https://picsum.photos/seed/8/112/112",
-    avatarHint: "man portrait",
-    salesGoal: 60,
-    salesValue: 2100,
-    salesTarget: 3500,
-  },
-  {
-    id: "5",
-    name: "Camila Pereira",
-    role: "Esteticista",
-    avatarUrl: "https://picsum.photos/seed/9/112/112",
-    avatarHint: "woman portrait",
-    salesGoal: 80,
-    salesValue: 3600,
-    salesTarget: 4500,
-  },
-];
-
-const totalSalesValue = funcionarios.reduce((acc, func) => acc + func.salesValue, 0);
-const totalSalesTarget = funcionarios.reduce((acc, func) => acc + func.salesTarget, 0);
-const totalSalesProgress = (totalSalesValue / totalSalesTarget) * 100;
-
-const saldoEmCaixa = 12500;
+import useLocalStorage from "@/lib/storage";
+import { initialFuncionarios, initialSaldoEmCaixa, Funcionario } from "@/lib/data";
 
 export default function DashboardPage() {
+    const [funcionarios] = useLocalStorage<Funcionario[]>('funcionarios', initialFuncionarios);
+    const [saldoEmCaixa] = useLocalStorage<number>('saldoEmCaixa', initialSaldoEmCaixa);
+
+
+    const totalSalesValue = funcionarios.reduce((acc, func) => acc + func.salesValue, 0);
+    const totalSalesTarget = funcionarios.reduce((acc, func) => acc + func.salesTarget, 0);
+    const totalSalesProgress = totalSalesTarget > 0 ? (totalSalesValue / totalSalesTarget) * 100 : 0;
+
   return (
     <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
       <div className="mb-8">

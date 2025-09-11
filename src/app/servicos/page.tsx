@@ -12,7 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { services as initialServices, roles as availableRoles, Service } from "@/lib/data";
+import { initialServices, initialRoles, Service } from "@/lib/data";
 import {
   Dialog,
   DialogContent,
@@ -24,11 +24,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
+import useLocalStorage from "@/lib/storage";
 
 
 export default function ServicosPage() {
-  const [services, setServices] = useState<Service[]>(initialServices);
-  const [roles, setRoles] = useState<string[]>(availableRoles);
+  const [services, setServices] = useLocalStorage<Service[]>('services', initialServices);
+  const [roles, setRoles] = useLocalStorage<string[]>('roles', initialRoles);
   const [selectedRole, setSelectedRole] = useState('');
 
   const roleOptions = roles.map(role => ({ value: role.toLowerCase(), label: role }));

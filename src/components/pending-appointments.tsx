@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
 import { acceptRejectAppointment } from '@/ai/flows/accept-reject-appointments';
-import { pendingAppointments as initialPendingAppointments, PendingAppointment } from '@/lib/data';
+import { initialPendingAppointments, PendingAppointment } from '@/lib/data';
+import useLocalStorage from '@/lib/storage';
 
 function PendingAppointmentCard({ appointment, onAction }: { appointment: PendingAppointment, onAction: (id: string) => void }) {
   const [isPending, startTransition] = useTransition();
@@ -78,7 +79,7 @@ function PendingAppointmentCard({ appointment, onAction }: { appointment: Pendin
 
 
 export function PendingAppointments() {
-  const [appointments, setAppointments] = useState<PendingAppointment[]>(initialPendingAppointments);
+  const [appointments, setAppointments] = useLocalStorage<PendingAppointment[]>('pendingAppointments', initialPendingAppointments);
 
   const handleAction = (appointmentId: string) => {
     setAppointments(currentAppointments => currentAppointments.filter(app => app.id !== appointmentId));

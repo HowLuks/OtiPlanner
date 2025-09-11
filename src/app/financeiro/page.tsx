@@ -1,21 +1,13 @@
+'use client'
+
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import useLocalStorage from "@/lib/storage";
+import { initialTransactions, initialEmployeePerformance, Transaction, EmployeePerformance } from "@/lib/data";
 
 export default function FinanceiroPage() {
-
-    const transactions = [
-        { date: '15/07/2024', description: 'Pagamento de cliente - Projeto Web', type: 'Entrada', value: 'R$ 2.500,00', isIncome: true },
-        { date: '18/07/2024', description: 'Aluguel do espaço', type: 'Saída', value: 'R$ 1.500,00', isIncome: false },
-        { date: '20/07/2024', description: 'Compra de materiais de escritório', type: 'Saída', value: 'R$ 300,00', isIncome: false },
-        { date: '22/07/2024', description: 'Pagamento de cliente - Consultoria', type: 'Entrada', value: 'R$ 1.800,00', isIncome: true },
-        { date: '25/07/2024', description: 'Salário - Funcionário 1', type: 'Saída', value: 'R$ 2.000,00', isIncome: false },
-    ];
-
-    const employeePerformance = [
-        { name: 'Funcionário 1', income: 'R$ 3.500,00' },
-        { name: 'Funcionário 2', income: 'R$ 2.800,00' },
-        { name: 'Funcionário 3', income: 'R$ 4.200,00' },
-    ];
+    const [transactions] = useLocalStorage<Transaction[]>('transactions', initialTransactions);
+    const [employeePerformance] = useLocalStorage<EmployeePerformance[]>('employeePerformance', initialEmployeePerformance);
 
     return (
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
