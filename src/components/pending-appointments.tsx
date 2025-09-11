@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useMemo } from 'react';
 import { Clock, Check, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { useToast } from "@/hooks/use-toast";
@@ -28,16 +28,22 @@ function PendingAppointmentCard({
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
 
-  const staffOptions = staff.map(s => ({ value: s.id, label: s.name }));
-  const serviceOptions = services.map(s => ({ value: s.id, label: `${s.name} - R$${s.price}` }));
+  const serviceForAppointment = useMemo(() => services.find(s => s.name === appointment.service), [services, appointment.service]);
 
+  const filteredStaff = useMemo(() => {
+    if (!serviceForAppointment) {
+      return [];
+    }
+    return staff.filter(s => s.role === serviceForAppointment.role);
+  }, [staff, serviceForAppointment]);
+
+  const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
   const handleConfirm = () => {
-    if (!selectedServiceId || !selectedStaffId) {
-      alert('Selecione o serviço e o profissional para confirmar.');
+    if (!selectedStaffId) {
+      alert('Selecione o profissional para confirmar.');
       return;
     }
 
@@ -54,7 +60,7 @@ function PendingAppointmentCard({
             id: `c${Date.now()}`,
             client: appointment.client,
             time: appointment.time,
-            service: services.find(s => s.id === selectedServiceId)?.name || 'N/A',
+            service: appointment.service,
             staffId: selectedStaffId,
           };
           onConfirm(appointment.id, newConfirmedAppointment);
@@ -110,7 +116,7 @@ function PendingAppointmentCard({
         <Clock className="text-white h-6 w-6" />
       </div>
       <div className="flex-1">
-        <p className="font-medium">{appointment.client}</p>
+        <p className="font-medium">{appointment.client} - {appointment.service}</p>
         <p className="text-sm text-muted-foreground">{appointment.time}</p>
       </div>
       <div className="flex gap-2">
@@ -132,19 +138,12 @@ function PendingAppointmentCard({
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="service" className="text-right">
-                  Serviço
-                </Label>
-                <div className='col-span-3'>
-                  <Combobox
-                      options={serviceOptions}
-                      value={selectedServiceId}
-                      onChange={setSelectedServiceId}
-                      placeholder="Selecione um serviço"
-                      searchPlaceholder="Buscar serviço..."
-                      emptyText="Nenhum serviço encontrado."
-                    />
-                </div>
+                <Label className="text-right">Cliente</Label>
+                <span className="col-span-3">{appointment.client}</span>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Serviço</Label>
+                <span className="col-span-3">{appointment.service}</span>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="staff" className="text-right">
@@ -157,7 +156,7 @@ function PendingAppointmentCard({
                     onChange={setSelectedStaffId}
                     placeholder="Selecione um profissional"
                     searchPlaceholder="Buscar profissional..."
-                    emptyText="Nenhum profissional encontrado."
+                    emptyText="Nenhum profissional qualificado."
                   />
                 </div>
               </div>
@@ -203,7 +202,7 @@ export function PendingAppointments({
   }, []);
 
   const handleConfirm = (pendingAppointmentId: string, newConfirmedAppointment: Appointment) => {
-    setConfirmedAppointments(current => [...current, newConfirmedAppointment]);
+    setConfirmedAppointments(current => [...current, newConfirmedAppointment].sort((a, b) => a.time.localeCompare(b.time)));
     setPendingAppointments(current => current.filter(app => app.id !== pendingAppointmentId));
   };
 

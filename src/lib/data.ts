@@ -9,12 +9,21 @@ export type Staff = {
   name: string;
   avatarUrl: string;
   avatarHint: string;
+  role: string;
 };
 
+export const initialRoles: string[] = [
+  'Barbeiro',
+  'Cabeleireira',
+  'Manicure',
+  'Esteticista',
+  'Recepcionista',
+];
+
 export const initialStaff: Staff[] = [
-  { id: '1', name: 'Carla', avatarUrl: findImage('staff-1'), avatarHint: findImageHint('staff-1') },
-  { id: '2', name: 'Marcos', avatarUrl: findImage('staff-2'), avatarHint: findImageHint('staff-2') },
-  { id: '3', name: 'Beatriz', avatarUrl: findImage('staff-3'), avatarHint: findImageHint('staff-3') },
+  { id: '1', name: 'Carla', avatarUrl: findImage('staff-1'), avatarHint: findImageHint('staff-1'), role: 'Cabeleireira' },
+  { id: '2', name: 'Marcos', avatarUrl: findImage('staff-2'), avatarHint: findImageHint('staff-2'), role: 'Barbeiro' },
+  { id: '3', name: 'Beatriz', avatarUrl: findImage('staff-3'), avatarHint: findImageHint('staff-3'), role: 'Manicure' },
 ];
 
 export type Appointment = {
@@ -35,12 +44,13 @@ export type PendingAppointment = {
   id: string;
   time: string;
   client: string;
+  service: string;
 }
 
 export const initialPendingAppointments: PendingAppointment[] = [
-    { id: 'p1', client: 'João Almeida', time: '11:00' },
-    { id: 'p2', client: 'Maria Santos', time: '15:00' },
-    { id: 'p3', client: 'Pedro Costa', time: '17:00' },
+    { id: 'p1', client: 'João Almeida', time: '11:00', service: 'Corte Social' },
+    { id: 'p2', client: 'Maria Santos', time: '15:00', service: 'Manicure Simples' },
+    { id: 'p3', client: 'Pedro Costa', time: '17:00', service: 'Limpeza de Pele' },
 ];
 
 export type Service = {
@@ -50,13 +60,6 @@ export type Service = {
   role: string;
 };
 
-export const initialRoles: string[] = [
-  'Barbeiro',
-  'Cabeleireira',
-  'Manicure',
-  'Esteticista',
-  'Recepcionista',
-];
 
 export const initialServices: Service[] = [
   { id: 's1', name: 'Corte Social', price: 30, role: 'Barbeiro' },

@@ -17,6 +17,7 @@ const globalStore: SimpleStore = {
 const appointmentSchema = z.object({
   client: z.string().min(1, { message: "Client name is required." }),
   time: z.string().regex(/^\d{2}:\d{2}$/, { message: "Time must be in HH:MM format." }),
+  service: z.string().min(1, { message: "Service is required." }),
 });
 
 export async function POST(request: Request) {
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: validation.error.flatten() }, { status: 400 });
     }
 
-    const { client, time } = validation.data;
+    const { client, time, service } = validation.data;
     
     // In a real app, you'd get the `pendingAppointments` from a shared data source
     // or from the localStorage on the client side. Here we use a simulated global store.
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         id: `p${globalStore.pendingAppointments.length + Date.now()}`,
         client,
         time,
+        service,
     };
 
     // Add to our simulated store
