@@ -6,8 +6,12 @@ import useLocalStorage from "@/lib/storage";
 import { initialTransactions, initialEmployeePerformance, Transaction, EmployeePerformance } from "@/lib/data";
 
 export default function FinanceiroPage() {
-    const [transactions] = useLocalStorage<Transaction[]>('transactions', initialTransactions);
-    const [employeePerformance] = useLocalStorage<EmployeePerformance[]>('employeePerformance', initialEmployeePerformance);
+    const [transactions, setTransactions, transactionsInitialized] = useLocalStorage<Transaction[]>('transactions', initialTransactions);
+    const [employeePerformance, setEmployeePerformance, employeePerformanceInitialized] = useLocalStorage<EmployeePerformance[]>('employeePerformance', initialEmployeePerformance);
+
+    if (!transactionsInitialized || !employeePerformanceInitialized) {
+        return null; // ou um componente de loading
+    }
 
     return (
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
