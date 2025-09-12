@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { format } from 'date-fns';
 import {
   Table,
@@ -34,6 +34,11 @@ export function ConfirmedAppointments({
   services,
   updateStaffSales,
 }: ConfirmedAppointmentsProps) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const getStaffMember = (staffId: string): Funcionario | undefined => {
     return staff.find(s => s.id === staffId);
@@ -44,14 +49,14 @@ export function ConfirmedAppointments({
   }
 
   const filteredAppointments = useMemo(() => {
-    if (!selectedDate) {
+    if (!selectedDate || !isClient) {
       return [];
     }
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     return confirmedAppointments
       .filter(app => app.date === dateStr)
       .sort((a, b) => a.time.localeCompare(b.time));
-  }, [confirmedAppointments, selectedDate]);
+  }, [confirmedAppointments, selectedDate, isClient]);
 
   const handleDelete = async (appointmentToDelete: Appointment) => {
     if(window.confirm("Tem certeza que deseja excluir este agendamento?")){
@@ -76,7 +81,7 @@ export function ConfirmedAppointments({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAppointments.length > 0 ? (
+              {isClient && filteredAppointments.length > 0 ? (
                 filteredAppointments.map((appointment) => {
                   const staffMember = getStaffMember(appointment.staffId);
                   const service = getService(appointment.serviceId);
@@ -109,7 +114,7 @@ export function ConfirmedAppointments({
               ) : (
                  <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                      Nenhum agendamento para esta data.
+                      {isClient ? "Nenhum agendamento para esta data." : "Carregando..."}
                     </TableCell>
                   </TableRow>              
               )}
