@@ -203,14 +203,6 @@ export default function ConfiguracoesPage() {
                         </div>
                     </CardContent>
                 </Card>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Marcadores</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground">Área para configurações futuras de marcadores.</p>
-                    </CardContent>
-                </Card>
             </div>
         </main>
     );
