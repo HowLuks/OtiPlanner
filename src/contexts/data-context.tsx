@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { collection, onSnapshot, doc, getDocs, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
 import { Appointment, EmployeePerformance, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings } from '@/lib/data';
@@ -111,16 +111,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     const unsubscribes = Object.entries(listenersToAttach).map(([key, ref]) => 
       onSnapshot(ref, (snapshot: any) => {
-        if (!snapshot.exists || (snapshot.exists && snapshot.exists())) {
-            if (snapshot.docs) { // Collection
-                const items = snapshot.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }));
-                setData(prevData => ({ ...prevData, [key]: items }));
-            } else if (snapshot.exists()) { // Single Doc
-                const docData = snapshot.data();
-                const value = key === 'saldoEmCaixa' ? docData.value : { ...docData, id: snapshot.id };
-                setData(prevData => ({ ...prevData, [key]: value }));
-            }
+        if (ref.type === 'document') { // Single Doc
+          const docData = snapshot.data();
+          const value = docData ? (key === 'saldoEmCaixa' ? docData.value : { ...docData, id: snapshot.id }) : (key === 'saldoEmCaixa' ? 0 : null);
+          setData(prevData => ({ ...prevData, [key]: value }));
+        } else { // Collection
+            const items = snapshot.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }));
+            setData(prevData => ({ ...prevData, [key]: items }));
         }
+        
         if (!initialLoadFlags[key]) {
           initialLoadFlags[key] = true;
           checkAllDataLoaded();
@@ -129,41 +128,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error(`Error fetching ${key}: `, error);
         if (!initialLoadFlags[key]) {
           initialLoadFlags[key] = true;
+          setData(prevData => ({ ...prevData, [key]: ref.type === 'document' ? (key === 'saldoEmCaixa' ? 0 : null) : [] }));
           checkAllDataLoaded();
         }
       })
     );
     
-    const initialFetch = async () => {
-        for (const key in listenersToAttach) {
-            try {
-                const ref = listenersToAttach[key];
-                if (ref.type === 'collection') {
-                    const snapshot = await getDocs(ref);
-                     if (!initialLoadFlags[key] && snapshot.docs.length === 0) {
-                        initialLoadFlags[key] = true;
-                        checkAllDataLoaded();
-                    }
-                } else {
-                     const snapshot = await getDoc(ref);
-                      if (!initialLoadFlags[key] && !snapshot.exists()) {
-                        initialLoadFlags[key] = true;
-                        checkAllDataLoaded();
-                    }
-                }
-            } catch (error) {
-                console.error(`Initial fetch failed for ${key}`, error);
-                 if (!initialLoadFlags[key]) {
-                    initialLoadFlags[key] = true;
-                    checkAllDataLoaded();
-                }
-            }
-        }
-    };
-
-    initialFetch();
-
-
     // Cleanup on unmount or when user changes
     return () => unsubscribes.forEach(unsub => unsub());
   }, [user, authLoading]);
