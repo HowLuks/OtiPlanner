@@ -28,14 +28,14 @@ export function ConfirmedAppointments({
   selectedDate
 }: ConfirmedAppointmentsProps) {
   const [isClient, setIsClient] = useState(false);
-  const { confirmedAppointments, staff, services, funcionarios } = useData();
+  const { confirmedAppointments, funcionarios, services } = useData();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   const getStaffMember = (staffId: string): Funcionario | undefined => {
-    return staff.find(s => s.id === staffId);
+    return funcionarios.find(s => s.id === staffId);
   };
   
   const getService = (serviceId: string): Service | undefined => {
