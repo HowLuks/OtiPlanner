@@ -25,7 +25,7 @@ function PendingAppointmentCard({
   appointment: PendingAppointment;
   isTimeBlocked: (staffId: string, date: string, time: string, serviceDuration: number) => string | false;
 }) {
-  const { staff, services, funcionarios } = useData();
+  const { services, funcionarios } = useData();
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
@@ -46,8 +46,8 @@ function PendingAppointmentCard({
     if (!service) {
       return [];
     }
-    return staff.filter(s => s.roleId === service.roleId);
-  }, [staff, service]);
+    return funcionarios.filter(s => s.roleId === service.roleId);
+  }, [funcionarios, service]);
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
