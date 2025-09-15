@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '@/contexts/data-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +8,10 @@ import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import { db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { WorkSchedule } from '@/lib/data';
+import { WorkSchedule, AppSettings } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 
 const daysOfWeek = ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'];
@@ -26,11 +27,19 @@ const dayLabels: { [key: string]: string } = {
 
 
 export default function ConfiguracoesPage() {
-    const { funcionarios, workSchedules, loading } = useData();
+    const { funcionarios, workSchedules, appSettings, loading } = useData();
     const [selectedStaffId, setSelectedStaffId] = useState('');
+    const [manualSelectionEnabled, setManualSelectionEnabled] = useState(false);
     const { toast } = useToast();
 
     const [currentSchedule, setCurrentSchedule] = useState<WorkSchedule | null>(null);
+
+    useEffect(() => {
+        if (appSettings) {
+            setManualSelectionEnabled(appSettings.manualSelection);
+        }
+    }, [appSettings]);
+
 
     const handleStaffChange = (staffId: string) => {
         setSelectedStaffId(staffId);
@@ -74,7 +83,7 @@ export default function ConfiguracoesPage() {
         if (currentSchedule) {
             try {
                 const scheduleRef = doc(db, 'workSchedules', currentSchedule.id);
-                await setDoc(scheduleRef, currentSchedule);
+                await setDoc(scheduleRef, currentSchedule, { merge: true });
                 toast({
                     title: "Sucesso!",
                     description: "Horário de trabalho salvo com sucesso.",
@@ -89,6 +98,27 @@ export default function ConfiguracoesPage() {
             }
         }
     };
+    
+    const handleManualSelectionToggle = async (checked: boolean) => {
+        setManualSelectionEnabled(checked);
+        try {
+            const settingsRef = doc(db, 'appState', 'settings');
+            await setDoc(settingsRef, { manualSelection: checked }, { merge: true });
+             toast({
+                title: "Sucesso!",
+                description: `Seleção manual ${checked ? 'ativada' : 'desativada'}.`,
+            });
+        } catch (error) {
+             console.error("Erro ao salvar configuração: ", error);
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Não foi possível salvar a configuração.",
+            });
+            // Revert optimistic update
+            setManualSelectionEnabled(!checked);
+        }
+    }
 
     if (loading) {
         return (
@@ -155,19 +185,30 @@ export default function ConfiguracoesPage() {
 
                  <Card>
                     <CardHeader>
+                        <CardTitle>Seleção Manual de Funcionários</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h4 className="font-medium">Ativar Seleção Manual</h4>
+                                <p className="text-sm text-muted-foreground">
+                                    Permite que o sistema ignore a atribuição automática e exija a seleção manual de um profissional.
+                                </p>
+                            </div>
+                            <Switch
+                                checked={manualSelectionEnabled}
+                                onCheckedChange={handleManualSelectionToggle}
+                                aria-label="Ativar seleção manual de funcionários"
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
                         <CardTitle>Marcadores</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-muted-foreground">Área para configurações futuras de marcadores.</p>
-                    </CardContent>
-                </Card>
-
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Seleção Manual de Funcionários</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground">Área para configurações futuras de seleção manual.</p>
                     </CardContent>
                 </Card>
             </div>

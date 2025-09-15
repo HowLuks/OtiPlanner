@@ -1,10 +1,10 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { collection, onSnapshot, doc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
-import { Appointment, EmployeePerformance, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule } from '@/lib/data';
+import { Appointment, EmployeePerformance, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings } from '@/lib/data';
 
 interface DataContextType {
   services: Service[];
@@ -16,6 +16,7 @@ interface DataContextType {
   employeePerformance: EmployeePerformance[];
   blocks: Block[];
   workSchedules: WorkSchedule[];
+  appSettings: AppSettings | null;
   saldoEmCaixa: number;
   loading: boolean;
 }
@@ -30,6 +31,7 @@ const DataContext = createContext<DataContextType>({
   employeePerformance: [],
   blocks: [],
   workSchedules: [],
+  appSettings: null,
   saldoEmCaixa: 0,
   loading: true,
 });
@@ -46,6 +48,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     employeePerformance: [],
     blocks: [],
     workSchedules: [],
+    appSettings: null,
     saldoEmCaixa: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -68,6 +71,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         employeePerformance: [],
         blocks: [],
         workSchedules: [],
+        appSettings: null,
         saldoEmCaixa: 0,
       });
       return;
@@ -89,6 +93,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     const singleDocs: { [key: string]: any } = {
         saldoEmCaixa: doc(db, 'appState', 'saldoEmCaixa'),
+        appSettings: doc(db, 'appState', 'settings'),
     };
 
     const listenersToAttach = { ...collections, ...singleDocs };
@@ -107,12 +112,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const unsubscribes = Object.entries(listenersToAttach).map(([key, ref]) => 
       onSnapshot(ref, (snapshot: any) => {
         if (!snapshot.exists || (snapshot.exists && snapshot.exists())) {
-            // This is a collection snapshot or a doc that exists
             if (snapshot.docs) { // Collection
-                const items = snapshot.docs.map((doc: any) => doc.data());
+                const items = snapshot.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }));
                 setData(prevData => ({ ...prevData, [key]: items }));
             } else if (snapshot.exists()) { // Single Doc
-                const value = snapshot.data().value;
+                const docData = snapshot.data();
+                const value = key === 'saldoEmCaixa' ? docData.value : { ...docData, id: snapshot.id };
                 setData(prevData => ({ ...prevData, [key]: value }));
             }
         }
@@ -133,11 +138,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         for (const key in listenersToAttach) {
             try {
                 const ref = listenersToAttach[key];
-                const snapshot = ref.type === 'collection' ? await getDocs(ref) : await (ref);
-                // This ensures that even for empty collections, the listener count is respected.
-                if (!initialLoadFlags[key]) {
-                   // onSnapshot might not fire for empty collections on initial load.
-                   // getDocs will, so we can check here.
+                if (ref.type === 'collection') {
+                    const snapshot = await getDocs(ref);
+                     if (!initialLoadFlags[key] && snapshot.docs.length === 0) {
+                        initialLoadFlags[key] = true;
+                        checkAllDataLoaded();
+                    }
+                } else {
+                     const snapshot = await getDoc(ref);
+                      if (!initialLoadFlags[key] && !snapshot.exists()) {
+                        initialLoadFlags[key] = true;
+                        checkAllDataLoaded();
+                    }
                 }
             } catch (error) {
                 console.error(`Initial fetch failed for ${key}`, error);

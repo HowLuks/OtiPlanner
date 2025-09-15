@@ -2,7 +2,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { initialFuncionarios, initialRoles, initialServices, initialConfirmedAppointments, initialPendingAppointments, initialTransactions, initialEmployeePerformance, initialSaldoEmCaixa, initialBlocks, initialWorkSchedules } from './data';
+import { initialFuncionarios, initialRoles, initialServices, initialConfirmedAppointments, initialPendingAppointments, initialTransactions, initialEmployeePerformance, initialSaldoEmCaixa, initialBlocks, initialWorkSchedules, initialAppSettings } from './data';
 
 const firebaseConfig = {
     apiKey: "AIzaSyDA2qwwoF7GELvhp4UzGeceTajJJhauYJ8",
@@ -79,6 +79,9 @@ export const seedDatabase = async () => {
             const docRef = doc(db, 'workSchedules', ws.id);
             batch.set(docRef, ws);
         });
+
+        const settingsRef = doc(db, 'appState', 'settings');
+        batch.set(settingsRef, initialAppSettings);
 
         const saldoRef = doc(db, 'appState', 'saldoEmCaixa');
         batch.set(saldoRef, { value: initialSaldoEmCaixa });

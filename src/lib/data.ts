@@ -170,5 +170,11 @@ export type WorkSchedule = {
     }
 };
 
+export type AppSettings = {
+    id: 'settings';
+    manualSelection: boolean;
+};
+
 export const initialBlocks: Block[] = [];
 export const initialWorkSchedules: WorkSchedule[] = [];
+export const initialAppSettings: AppSettings = { id: 'settings', manualSelection: false };
