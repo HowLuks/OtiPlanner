@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, getDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { Clock, Check, X } from 'lucide-react';
 
@@ -12,24 +12,20 @@ import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { useToast } from "@/hooks/use-toast";
 import { acceptRejectAppointment } from '@/ai/flows/accept-reject-appointments';
-import { PendingAppointment, Appointment, Service, Funcionario } from '@/lib/data';
+import { PendingAppointment, Appointment, Service, Funcionario, Block, WorkSchedule } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { useData } from '@/contexts/data-context';
 
 
 function PendingAppointmentCard({ 
   appointment,
-  confirmedAppointments,
-  staff,
-  services,
-  updateStaffSales,
+  isTimeBlocked,
 }: { 
   appointment: PendingAppointment;
-  confirmedAppointments: Appointment[];
-  staff: Funcionario[];
-  services: Service[];
-  updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
+  isTimeBlocked: (staffId: string, date: string, time: string, serviceDuration: number) => string | false;
 }) {
+  const { staff, services, funcionarios } = useData();
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
@@ -55,23 +51,23 @@ function PendingAppointmentCard({
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
-  const checkForConflict = (staffId: string, date: string, time: string): boolean => {
-    if (!service) return false;
-    const newAppointmentStart = toZonedTime(new Date(`${date}T${time}`), 'UTC').getTime();
-    const newAppointmentEnd = newAppointmentStart + service.duration * 60 * 1000;
+  const updateStaffSales = async (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
+    const service = services.find(s => s.id === serviceId);
+    const func = funcionarios.find(f => f.id === staffId);
+    if (!service || !func) return;
 
-    return confirmedAppointments.some(existing => {
-      if (existing.staffId !== staffId || existing.date !== date) {
-        return false;
-      }
-      const existingService = services.find(s => s.id === existing.serviceId);
-      if (!existingService) return false;
-      
-      const existingStart = toZonedTime(new Date(`${existing.date}T${existing.time}`), 'UTC').getTime();
-      const existingEnd = existingStart + existingService.duration * 60 * 1000;
-      
-      return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
-    });
+    const newSalesValue = operation === 'add'
+      ? func.salesValue + service.price
+      : func.salesValue - service.price;
+
+    const newSalesGoal = func.salesTarget > 0
+      ? Math.round((newSalesValue / func.salesTarget) * 100)
+      : 0;
+
+    const updatedFunc = { ...func, salesValue: newSalesValue, salesGoal: newSalesGoal };
+
+    const funcDocRef = doc(db, 'funcionarios', staffId);
+    await setDoc(funcDocRef, updatedFunc, { merge: true });
   };
   
   const handleConfirm = () => {
@@ -80,9 +76,15 @@ function PendingAppointmentCard({
       return;
     }
     
+    if (!service) {
+        alert('Serviço não encontrado.');
+        return;
+    }
+    
     setConflictError('');
-    if (checkForConflict(selectedStaffId, appointment.date, appointment.time)) {
-        setConflictError('Este profissional já possui um agendamento conflitante neste horário.');
+    const blockReason = isTimeBlocked(selectedStaffId, appointment.date, appointment.time, service.duration);
+    if (blockReason) {
+        setConflictError(blockReason);
         return;
     }
 
@@ -250,18 +252,11 @@ function PendingAppointmentCard({
 
 
 export function PendingAppointments({ 
-  pendingAppointments,
-  confirmedAppointments,
-  services,
-  staff,
-  updateStaffSales,
+  isTimeBlocked,
 }: { 
-  pendingAppointments: PendingAppointment[];
-  confirmedAppointments: Appointment[];
-  services: Service[];
-  staff: Funcionario[];
-  updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
+  isTimeBlocked: (staffId: string, date: string, time: string, serviceDuration: number) => string | false;
 }) {
+  const { pendingAppointments } = useData();
 
   return (
     <Card className="bg-card border-border h-fit">
@@ -275,10 +270,7 @@ export function PendingAppointments({
               <PendingAppointmentCard 
                 key={appointment.id} 
                 appointment={appointment} 
-                confirmedAppointments={confirmedAppointments}
-                staff={staff}
-                services={services}
-                updateStaffSales={updateStaffSales}
+                isTimeBlocked={isTimeBlocked}
               />
             ))}
           </div>

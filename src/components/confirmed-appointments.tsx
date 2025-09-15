@@ -16,25 +16,19 @@ import { Button } from "@/components/ui/button";
 import { Edit, Trash } from "lucide-react";
 import { Funcionario, Appointment, Service } from "@/lib/data";
 import { db } from "@/lib/firebase";
-import { doc, deleteDoc } from "firebase/firestore";
+import { doc, deleteDoc, setDoc } from "firebase/firestore";
+import { useData } from "@/contexts/data-context";
 
 
 interface ConfirmedAppointmentsProps {
   selectedDate: Date | undefined;
-  confirmedAppointments: Appointment[];
-  staff: Funcionario[];
-  services: Service[];
-  updateStaffSales: (staffId: string, serviceId: string, operation: 'add' | 'subtract') => void;
 }
 
 export function ConfirmedAppointments({ 
-  selectedDate, 
-  confirmedAppointments,
-  staff, 
-  services,
-  updateStaffSales,
+  selectedDate
 }: ConfirmedAppointmentsProps) {
   const [isClient, setIsClient] = useState(false);
+  const { confirmedAppointments, staff, services, funcionarios } = useData();
 
   useEffect(() => {
     setIsClient(true);
@@ -57,6 +51,25 @@ export function ConfirmedAppointments({
       .filter(app => app.date === dateStr)
       .sort((a, b) => a.time.localeCompare(b.time));
   }, [confirmedAppointments, selectedDate, isClient]);
+
+  const updateStaffSales = async (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
+    const service = services.find(s => s.id === serviceId);
+    const func = funcionarios.find(f => f.id === staffId);
+    if (!service || !func) return;
+
+    const newSalesValue = operation === 'add'
+      ? func.salesValue + service.price
+      : func.salesValue - service.price;
+
+    const newSalesGoal = func.salesTarget > 0
+      ? Math.round((newSalesValue / func.salesTarget) * 100)
+      : 0;
+
+    const updatedFunc = { ...func, salesValue: newSalesValue, salesGoal: newSalesGoal };
+
+    const funcDocRef = doc(db, 'funcionarios', staffId);
+    await setDoc(funcDocRef, updatedFunc, { merge: true });
+  };
 
   const handleDelete = async (appointmentToDelete: Appointment) => {
     if(window.confirm("Tem certeza que deseja excluir este agendamento?")){

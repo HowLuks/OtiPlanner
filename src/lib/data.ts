@@ -153,3 +153,22 @@ export const initialEmployeePerformance: EmployeePerformance[] = [
 ];
 
 export const initialSaldoEmCaixa = 12500;
+
+export type Block = {
+    id: string;
+    staffId: string;
+    date: string; // YYYY-MM-DD
+    startTime: string; // HH:MM
+    endTime: string; // HH:MM
+};
+
+export type WorkSchedule = {
+    id: string;
+    staffId: string;
+    horarios: {
+        [key: string]: { start: string; end: string };
+    }
+};
+
+export const initialBlocks: Block[] = [];
+export const initialWorkSchedules: WorkSchedule[] = [];

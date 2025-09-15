@@ -2,16 +2,15 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { initialFuncionarios, initialRoles, initialServices, initialConfirmedAppointments, initialPendingAppointments, initialTransactions, initialEmployeePerformance, initialSaldoEmCaixa } from './data';
+import { initialFuncionarios, initialRoles, initialServices, initialConfirmedAppointments, initialPendingAppointments, initialTransactions, initialEmployeePerformance, initialSaldoEmCaixa, initialBlocks, initialWorkSchedules } from './data';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDA2qwwoF7GELvhp4UzGeceTajJJhauYJ8",
-  authDomain: "studio-6228903307-46c1c.firebaseapp.com",
-  projectId: "studio-6228903307-46c1c",
-  storageBucket: "studio-6228903307-46c1c.firebasestorage.app",
-  messagingSenderId: "564947118922",
-  appId: "1:564947118922:web:e7bde2fab7767ee7796fb3",
-  measurementId: "G-XXXXXXXXXX"
+    apiKey: "AIzaSyDA2qwwoF7GELvhp4UzGeceTajJJhauYJ8",
+    authDomain: "studio-6228903307-46c1c.firebaseapp.com",
+    projectId: "studio-6228903307-46c1c",
+    storageBucket: "studio-6228903307-46c1c.appspot.com",
+    messagingSenderId: "564947118922",
+    appId: "1:564947118922:web:e7bde2fab7767ee7796fb3"
 };
 
 
@@ -69,6 +68,16 @@ export const seedDatabase = async () => {
         initialEmployeePerformance.forEach((ep, i) => {
              const docRef = doc(db, 'employeePerformance', `ep-${i}`);
             batch.set(docRef, ep);
+        });
+
+        initialBlocks.forEach(block => {
+            const docRef = doc(db, 'blocks', block.id);
+            batch.set(docRef, block);
+        });
+
+        initialWorkSchedules.forEach(ws => {
+            const docRef = doc(db, 'workSchedules', ws.id);
+            batch.set(docRef, ws);
         });
 
         const saldoRef = doc(db, 'appState', 'saldoEmCaixa');

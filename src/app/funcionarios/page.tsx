@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import Image from "next/image";
-import { Edit, Trash, Plus, Upload } from "lucide-react";
+import { Edit, Trash, Plus, Upload, Ban } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,12 +16,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Funcionario, Role } from "@/lib/data";
+import { Funcionario, Role, Block, Appointment } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 interface FuncionarioCardProps {
   funcionario: Funcionario;
@@ -30,15 +33,23 @@ interface FuncionarioCardProps {
   onUpdate: (updatedFuncionario: Funcionario) => void;
   onDelete: (id: string) => void;
   onPhotoUpload: (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => void;
+  onAddBlock: (block: Block) => Promise<boolean>;
 }
 
-function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelete, onPhotoUpload }: FuncionarioCardProps) {
+function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelete, onPhotoUpload, onAddBlock }: FuncionarioCardProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isBlockOpen, setIsBlockOpen] = useState(false);
   const [editEmployeeName, setEditEmployeeName] = useState(funcionario.name);
   const [editEmployeeRoleId, setEditEmployeeRoleId] = useState(funcionario.roleId);
   const [editEmployeePhoto, setEditEmployeePhoto] = useState<string | null>(funcionario.avatarUrl);
   const [editSalesTarget, setEditSalesTarget] = useState<number | ''>(funcionario.salesTarget);
   
+  const [blockDate, setBlockDate] = useState<Date | undefined>();
+  const [blockStartTime, setBlockStartTime] = useState('');
+  const [blockEndTime, setBlockEndTime] = useState('');
+  const [blockError, setBlockError] = useState('');
+  const { toast } = useToast();
+
   const handleOpen = () => {
     setEditEmployeeName(funcionario.name);
     setEditEmployeeRoleId(funcionario.roleId);
@@ -67,6 +78,41 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
     };
     onUpdate(updatedFuncionario);
     setIsOpen(false);
+  };
+
+  const handleCreateBlock = async () => {
+    if (!blockDate || !blockStartTime || !blockEndTime) {
+      setBlockError("Por favor, preencha todos os campos do bloqueio.");
+      return;
+    }
+    setBlockError('');
+
+    const newBlock: Block = {
+      id: `block-${funcionario.id}-${Date.now()}`,
+      staffId: funcionario.id,
+      date: format(blockDate, 'yyyy-MM-dd'),
+      startTime: blockStartTime,
+      endTime: blockEndTime,
+    };
+
+    const success = await onAddBlock(newBlock);
+    if (success) {
+      toast({
+        title: "Sucesso!",
+        description: "Bloqueio criado com sucesso.",
+      });
+      setIsBlockOpen(false);
+      resetBlockForm();
+    } else {
+      setBlockError("Conflito detectado. O funcionário já tem um agendamento neste horário.");
+    }
+  };
+
+  const resetBlockForm = () => {
+    setBlockDate(undefined);
+    setBlockStartTime('');
+    setBlockEndTime('');
+    setBlockError('');
   };
 
   return (
@@ -164,6 +210,46 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
             </Tabs>
           </DialogContent>
         </Dialog>
+        <Dialog open={isBlockOpen} onOpenChange={(open) => { setIsBlockOpen(open); if (!open) resetBlockForm(); }}>
+          <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-yellow-500">
+                <Ban className="text-xl" />
+              </Button>
+          </DialogTrigger>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Cadastrar Bloqueio para {funcionario.name}</DialogTitle>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                  <Calendar
+                      mode="single"
+                      selected={blockDate}
+                      onSelect={setBlockDate}
+                      className="rounded-md border"
+                  />
+                  {blockDate && (
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="block-start-time">Hora de Início</Label>
+                              <Input id="block-start-time" type="time" value={blockStartTime} onChange={e => setBlockStartTime(e.target.value)} />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="block-end-time">Hora de Fim</Label>
+                              <Input id="block-end-time" type="time" value={blockEndTime} onChange={e => setBlockEndTime(e.target.value)} />
+                          </div>
+                      </div>
+                  )}
+                   {blockError && (
+                    <div className="text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-md">
+                      {blockError}
+                    </div>
+                  )}
+              </div>
+              <div className="flex justify-end">
+                  <Button onClick={handleCreateBlock} disabled={!blockDate || !blockStartTime || !blockEndTime}>Salvar Bloqueio</Button>
+              </div>
+          </DialogContent>
+        </Dialog>
         <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => onDelete(funcionario.id)}>
           <Trash className="text-xl" />
         </Button>
@@ -173,7 +259,7 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
 }
 
 export default function FuncionariosPage() {
-  const { funcionarios, roles, loading } = useData();
+  const { funcionarios, roles, loading, confirmedAppointments, services } = useData();
 
   const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
   const [newRoleName, setNewRoleName] = useState('');
@@ -258,6 +344,34 @@ export default function FuncionariosPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleAddBlock = async (block: Block): Promise<boolean> => {
+    const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
+    const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
+
+    const hasConflict = confirmedAppointments.some(app => {
+        if (app.staffId !== block.staffId || app.date !== block.date) {
+            return false;
+        }
+
+        const service = services.find(s => s.id === app.serviceId);
+        if (!service) return false;
+
+        const appStart = new Date(`${app.date}T${app.time}`).getTime();
+        const appEnd = appStart + service.duration * 60 * 1000;
+
+        // Check for overlap
+        return (blockStart < appEnd && blockEnd > appStart);
+    });
+
+    if (hasConflict) {
+        return false; // Conflict found
+    }
+
+    // No conflict, save the block
+    await setDoc(doc(db, 'blocks', block.id), block);
+    return true; // Success
   };
   
   return (
@@ -368,6 +482,7 @@ export default function FuncionariosPage() {
               onUpdate={handleUpdateFuncionario}
               onDelete={handleDeleteEmployee}
               onPhotoUpload={handlePhotoUpload}
+              onAddBlock={handleAddBlock}
             />
           ))}
         </div>

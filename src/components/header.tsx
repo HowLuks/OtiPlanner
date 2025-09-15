@@ -25,6 +25,7 @@ const navLinks = [
   { href: "/funcionarios", label: "Funcionários" },
   { href: "/", label: "Agendamentos" },
   { href: "/financeiro", label: "Financeiro" },
+  { href: "/configuracoes", label: "Configurações" },
 ];
 
 const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, getDay } from 'date-fns';
 import { AppHeader } from "@/components/header";
 import { CalendarView } from "@/components/calendar-view";
 import { ConfirmedAppointments } from "@/components/confirmed-appointments";
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
-import { Service, Funcionario, Appointment, PendingAppointment } from '@/lib/data';
+import { Service, Funcionario, Appointment, PendingAppointment, Block, WorkSchedule } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db, seedDatabase } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -24,7 +24,9 @@ export default function Home() {
     services, 
     funcionarios, 
     confirmedAppointments, 
-    pendingAppointments, 
+    pendingAppointments,
+    blocks,
+    workSchedules,
     loading: dataLoading 
   } = useData();
 
@@ -71,27 +73,61 @@ export default function Home() {
     setConflictError('');
   };
 
-  const checkForConflict = (staffId: string, date: string, time: string): boolean => {
-    const serviceForNewApp = services.find(s => s.id === selectedServiceId);
-    if (!serviceForNewApp) return false;
-
+  const isTimeBlocked = (staffId: string, date: string, time: string, serviceDuration: number): string | false => {
     const newAppointmentStart = new Date(`${date}T${time}`).getTime();
-    const newAppointmentEnd = newAppointmentStart + serviceForNewApp.duration * 60 * 1000;
+    const newAppointmentEnd = newAppointmentStart + serviceDuration * 60 * 1000;
 
-    return confirmedAppointments.some(existing => {
-      if (existing.staffId !== staffId || existing.date !== date) {
-        return false;
-      }
-      const existingService = services.find(s => s.id === existing.serviceId);
-      if (!existingService) return false;
-
-      const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
-      const existingEnd = existingStart + existingService.duration * 60 * 1000;
-
-      // Check for overlap
-      return (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart);
+    // Check for conflicts with existing confirmed appointments
+    const conflictAppointment = confirmedAppointments.some(existing => {
+        if (existing.staffId !== staffId || existing.date !== date) return false;
+        const existingService = services.find(s => s.id === existing.serviceId);
+        if (!existingService) return false;
+        const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
+        const existingEnd = existingStart + existingService.duration * 60 * 1000;
+        return newAppointmentStart < existingEnd && newAppointmentEnd > existingStart;
     });
+    if (conflictAppointment) return 'Este profissional já possui um agendamento conflitante neste horário.';
+
+    // Check for conflicts with blocks
+    const conflictBlock = blocks.some(block => {
+        if (block.staffId !== staffId || block.date !== date) return false;
+        const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
+        const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
+        return newAppointmentStart < blockEnd && newAppointmentEnd > blockStart;
+    });
+    if (conflictBlock) return 'O profissional tem um bloqueio de tempo neste horário.';
+    
+    // Check against work schedule
+    const schedule = workSchedules.find(ws => ws.staffId === staffId);
+    if (schedule) {
+        const dayIndex = getDay(new Date(date)); // Sunday = 0, Monday = 1, etc.
+        const dayOfWeek = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'][dayIndex];
+        const workHours = schedule.horarios[dayOfWeek as keyof typeof schedule.horarios];
+
+        if (!workHours || !workHours.start || !workHours.end) {
+            return `O profissional não trabalha neste dia (${dayLabels[dayOfWeek]}).`;
+        }
+
+        const workStart = new Date(`${date}T${workHours.start}`).getTime();
+        const workEnd = new Date(`${date}T${workHours.end}`).getTime();
+
+        if (newAppointmentStart < workStart || newAppointmentEnd > workEnd) {
+            return `O horário do agendamento está fora do expediente do profissional (${workHours.start} - ${workHours.end}).`;
+        }
+    }
+
+
+    return false;
   };
+  const dayLabels: { [key: string]: string } = {
+      segunda: 'Segunda',
+      terca: 'Terça',
+      quarta: 'Quarta',
+      quinta: 'Quinta',
+      sexta: 'Sexta',
+      sabado: 'Sábado',
+      domingo: 'Domingo',
+    };
 
   const updateStaffSales = async (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
     const service = services.find(s => s.id === serviceId);
@@ -119,15 +155,22 @@ export default function Home() {
     }
     setConflictError('');
 
+    const service = services.find(s => s.id === selectedServiceId);
+    if (!service) {
+      alert('Serviço não encontrado.');
+      return;
+    }
+
     if (appointmentStatus === 'confirmed') {
       if (!selectedStaffId) {
         alert('Para agendamentos confirmados, o profissional é obrigatório.');
         return;
       }
 
-      if (checkForConflict(selectedStaffId, appointmentDate, appointmentTime)) {
-        setConflictError('Este profissional já possui um agendamento conflitante neste horário.');
-        return;
+      const blockReason = isTimeBlocked(selectedStaffId, appointmentDate, appointmentTime, service.duration);
+      if (blockReason) {
+          setConflictError(blockReason);
+          return;
       }
       
       const newId = `c${(confirmedAppointments?.length || 0) + Date.now()}`;
@@ -285,10 +328,6 @@ export default function Home() {
           ) : (
             <ConfirmedAppointments 
               selectedDate={selectedDate}
-              confirmedAppointments={confirmedAppointments}
-              services={services}
-              staff={funcionarios}
-              updateStaffSales={updateStaffSales}
             />
           )}
         </div>
@@ -302,11 +341,7 @@ export default function Home() {
             </div>
           ) : (
              <PendingAppointments
-                pendingAppointments={pendingAppointments}
-                confirmedAppointments={confirmedAppointments}
-                services={services}
-                staff={funcionarios}
-                updateStaffSales={updateStaffSales}
+                isTimeBlocked={isTimeBlocked}
             />
           )}
         </aside>
