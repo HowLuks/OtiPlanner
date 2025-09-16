@@ -154,19 +154,19 @@ export default function Home() {
   
     const findAvailableStaffAndAssign = async (service: Service, date: string, time: string): Promise<boolean> => {
         const qualifiedStaff = funcionarios.filter(f => f.roleId === service.roleId);
-            
+        
         if (qualifiedStaff.length === 0) {
             setConflictError("Não há funcionários qualificados para este serviço.");
             return false;
         }
 
-        const globalQueue = staffQueue ? staffQueue.staffIds : [];
+        const globalQueue = staffQueue?.staffIds || [];
 
-        // Correctly order staff: those in the queue first, respecting queue order, then those not in the queue.
+        // Build the potential staff list respecting the global queue order
         const staffInQueue = globalQueue
-          .map(staffId => qualifiedStaff.find(s => s.id === staffId))
-          .filter((s): s is Funcionario => s !== undefined);
-          
+            .map(staffId => qualifiedStaff.find(s => s.id === staffId))
+            .filter((s): s is Funcionario => s !== undefined); // Filter out undefined if a staff in queue is not qualified
+
         const staffNotInQueue = qualifiedStaff.filter(s => !globalQueue.includes(s.id));
 
         const potentialStaff = [...staffInQueue, ...staffNotInQueue];
@@ -175,7 +175,7 @@ export default function Home() {
             setConflictError("Não há funcionários disponíveis para atribuição.");
             return false;
         }
-
+        
         let assignedStaffId: string | null = null;
         
         for(const staff of potentialStaff) {
@@ -201,7 +201,7 @@ export default function Home() {
             // Update queue: move the assigned staff to the end
             const newQueue = globalQueue.filter(id => id !== assignedStaffId);
             newQueue.push(assignedStaffId);
-
+            
             const queueRef = doc(db, 'appState', 'staffQueue');
             await setDoc(queueRef, { staffIds: newQueue }, { merge: true });
             
