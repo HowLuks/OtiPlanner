@@ -153,19 +153,6 @@ export const initialTransactions: Transaction[] = [
     { date: '07/08/2024', description: 'Pagamento de salários', type: 'Saída', value: 'R$ 6.500,00', isIncome: false },
 ];
 
-export type EmployeePerformance = {
-  name: string;
-  income: string;
-};
-
-export const initialEmployeePerformance: EmployeePerformance[] = [
-    { name: 'Beatriz Costa', income: 'R$ 4.800,00' },
-    { name: 'Ricardo Neves', income: 'R$ 3.900,00' },
-    { name: 'Patrícia Almeida', income: 'R$ 4.750,00' },
-    { name: 'Fernanda Lima', income: 'R$ 4.900,00' },
-    { name: 'Gustavo Martins', income: 'R$ 2.000,00' },
-];
-
 export const initialSaldoEmCaixa = 23750;
 
 export type Block = {
@@ -189,6 +176,12 @@ export type AppSettings = {
     manualSelection: boolean;
 };
 
+export type StaffQueue = {
+    id: 'staffQueue';
+    staffIds: string[];
+}
+
 export const initialBlocks: Block[] = [];
 export const initialWorkSchedules: WorkSchedule[] = [];
 export const initialAppSettings: AppSettings = { id: 'settings', manualSelection: false };
+export const initialStaffQueue: StaffQueue = { id: 'staffQueue', staffIds: ["func-1", "func-2", "func-3", "func-4", "func-5"] };

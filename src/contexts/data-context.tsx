@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { collection, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
-import { Appointment, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings } from '@/lib/data';
+import { Appointment, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings, StaffQueue } from '@/lib/data';
 
 interface DataContextType {
   services: Service[];
@@ -16,6 +16,7 @@ interface DataContextType {
   blocks: Block[];
   workSchedules: WorkSchedule[];
   appSettings: AppSettings | null;
+  staffQueue: StaffQueue | null;
   saldoEmCaixa: number;
   loading: boolean;
 }
@@ -30,6 +31,7 @@ const DataContext = createContext<DataContextType>({
   blocks: [],
   workSchedules: [],
   appSettings: null,
+  staffQueue: null,
   saldoEmCaixa: 0,
   loading: true,
 });
@@ -46,6 +48,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     blocks: [],
     workSchedules: [],
     appSettings: null,
+    staffQueue: null,
     saldoEmCaixa: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -68,6 +71,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         blocks: [],
         workSchedules: [],
         appSettings: null,
+        staffQueue: null,
         saldoEmCaixa: 0,
       });
       return;
@@ -89,6 +93,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const singleDocs: { [key: string]: any } = {
         saldoEmCaixa: doc(db, 'appState', 'saldoEmCaixa'),
         appSettings: doc(db, 'appState', 'settings'),
+        staffQueue: doc(db, 'appState', 'staffQueue'),
     };
 
     const listenersToAttach = { ...collections, ...singleDocs };
@@ -108,7 +113,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       onSnapshot(ref, (snapshot: any) => {
         if (ref.type === 'document') { // Single Doc
           const docData = snapshot.data();
-          const value = docData ? (key === 'saldoEmCaixa' ? docData.value : { ...docData, id: snapshot.id }) : (key === 'saldoEmCaixa' ? 0 : null);
+          let value;
+          if (docData) {
+            value = key === 'saldoEmCaixa' ? docData.value : { ...docData, id: snapshot.id };
+          } else {
+            value = key === 'saldoEmCaixa' ? 0 : null;
+          }
           setData(prevData => ({ ...prevData, [key]: value }));
         } else { // Collection
             const items = snapshot.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }));
@@ -123,7 +133,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error(`Error fetching ${key}: `, error);
         if (!initialLoadFlags[key]) {
           initialLoadFlags[key] = true;
-          setData(prevData => ({ ...prevData, [key]: ref.type === 'document' ? (key === 'saldoEmCaixa' ? 0 : null) : [] }));
+          const defaultValue = ref.type === 'document' ? (key === 'saldoEmCaixa' ? 0 : null) : [];
+          setData(prevData => ({ ...prevData, [key]: defaultValue }));
           checkAllDataLoaded();
         }
       })

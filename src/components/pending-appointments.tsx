@@ -256,7 +256,11 @@ export function PendingAppointments({
 }: { 
   isTimeBlocked: (staffId: string, date: string, time: string, serviceDuration: number) => string | false;
 }) {
-  const { pendingAppointments } = useData();
+  const { pendingAppointments, appSettings } = useData();
+
+  if (!appSettings?.manualSelection) {
+    return null;
+  }
 
   return (
     <Card className="bg-card border-border h-fit">
