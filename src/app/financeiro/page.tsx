@@ -7,7 +7,7 @@ import { useData } from "@/contexts/data-context";
 
 
 export default function FinanceiroPage() {
-    const { transactions, employeePerformance, loading } = useData();
+    const { transactions, loading } = useData();
 
     if (loading) {
         return (
@@ -27,10 +27,6 @@ export default function FinanceiroPage() {
                     <div className="mb-8">
                         <Skeleton className="h-8 w-48 mb-4" />
                         <Skeleton className="h-64 rounded-xl" />
-                    </div>
-                    <div>
-                        <Skeleton className="h-8 w-64 mb-4" />
-                        <Skeleton className="h-48 rounded-xl" />
                     </div>
                 </div>
             </main>
@@ -92,28 +88,6 @@ export default function FinanceiroPage() {
                                         </td>
                                         <td className={`whitespace-nowrap px-6 py-4 text-right text-sm font-medium ${transaction.isIncome ? 'text-green-500' : 'text-red-500'}`}>{transaction.value}</td>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div>
-                    <h3 className="text-xl font-bold mb-4">Rendimento por Funcionário</h3>
-                    <div className="overflow-x-auto rounded-xl border border-border bg-card">
-                        <table className="min-w-full divide-y divide-border">
-                            <thead className="bg-secondary/30">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">Funcionário</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">Rendimento</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {employeePerformance.map((employee, index) => (
-                                    <tr key={index}>
-                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">{employee.name}</td>
-                                        <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium text-muted-foreground">{employee.income}</td>
-                                    </tr>
-                               
                                 ))}
                             </tbody>
                         </table>

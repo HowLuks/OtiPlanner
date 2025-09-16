@@ -65,11 +65,6 @@ export const seedDatabase = async () => {
             batch.set(docRef, t);
         });
 
-        initialEmployeePerformance.forEach((ep, i) => {
-             const docRef = doc(db, 'employeePerformance', `ep-${i}`);
-            batch.set(docRef, ep);
-        });
-
         initialBlocks.forEach(block => {
             const docRef = doc(db, 'blocks', block.id);
             batch.set(docRef, block);

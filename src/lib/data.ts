@@ -146,11 +146,7 @@ export type EmployeePerformance = {
   income: string;
 };
 
-export const initialEmployeePerformance: EmployeePerformance[] = [
-    { name: 'Funcionário 1', income: 'R$ 3.500,00' },
-    { name: 'Funcionário 2', income: 'R$ 2.800,00' },
-    { name: 'Funcionário 3', income: 'R$ 4.200,00' },
-];
+export const initialEmployeePerformance: EmployeePerformance[] = [];
 
 export const initialSaldoEmCaixa = 12500;
 

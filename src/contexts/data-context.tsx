@@ -111,6 +111,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     const unsubscribes = Object.entries(listenersToAttach).map(([key, ref]) => 
       onSnapshot(ref, (snapshot: any) => {
+        if (key === 'employeePerformance') {
+            // Do not process this collection anymore but mark as loaded
+            if (!initialLoadFlags[key]) {
+              initialLoadFlags[key] = true;
+              checkAllDataLoaded();
+            }
+            setData(prevData => ({ ...prevData, employeePerformance: [] }));
+            return;
+        }
+
         if (ref.type === 'document') { // Single Doc
           const docData = snapshot.data();
           const value = docData ? (key === 'saldoEmCaixa' ? docData.value : { ...docData, id: snapshot.id }) : (key === 'saldoEmCaixa' ? 0 : null);
