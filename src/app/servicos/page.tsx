@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Trash } from "lucide-react";
 import { Service, Role } from "@/lib/data";
 import {
   Dialog,
@@ -26,13 +26,15 @@ import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, writeBatch, collection, getDocs, query, where } from 'firebase/firestore';
 import { useData } from "@/contexts/data-context";
+import { useToast } from "@/hooks/use-toast";
 
 
 export default function ServicosPage() {
   const { services, roles, loading } = useData();
   const [selectedRoleId, setSelectedRoleId] = useState('');
+  const { toast } = useToast();
 
   const [newServiceName, setNewServiceName] = useState('');
   const [newServicePrice, setNewServicePrice] = useState<number | ''>('');
@@ -54,6 +56,47 @@ export default function ServicosPage() {
       setNewServicePrice('');
       setNewServiceDuration(30);
       setSelectedRoleId('');
+    }
+  };
+
+  const handleDeleteService = async (serviceId: string) => {
+    if(window.confirm("Tem certeza que deseja deletar este serviço? Todos os agendamentos (confirmados e pendentes) associados a ele também serão removidos.")) {
+      try {
+        const batch = writeBatch(db);
+
+        // 1. Delete the service itself
+        const serviceRef = doc(db, 'services', serviceId);
+        batch.delete(serviceRef);
+
+        // 2. Find and delete confirmed appointments with this service
+        const confirmedQuery = query(collection(db, 'confirmedAppointments'), where('serviceId', '==', serviceId));
+        const confirmedSnapshot = await getDocs(confirmedQuery);
+        confirmedSnapshot.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+
+        // 3. Find and delete pending appointments with this service
+        const pendingQuery = query(collection(db, 'pendingAppointments'), where('serviceId', '==', serviceId));
+        const pendingSnapshot = await getDocs(pendingQuery);
+        pendingSnapshot.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        
+        await batch.commit();
+
+        toast({
+          title: 'Sucesso!',
+          description: 'Serviço e agendamentos associados foram deletados.',
+        });
+
+      } catch (error) {
+        console.error("Erro ao deletar serviço e agendamentos:", error);
+        toast({
+          variant: "destructive",
+          title: 'Erro',
+          description: 'Não foi possível deletar o serviço. Tente novamente.',
+        });
+      }
     }
   };
 
@@ -148,7 +191,8 @@ export default function ServicosPage() {
                 <TableHead>Serviço</TableHead>
                 <TableHead>Função</TableHead>
                 <TableHead>Duração</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
+                <TableHead>Valor</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -157,8 +201,13 @@ export default function ServicosPage() {
                   <TableCell className="font-medium">{service.name}</TableCell>
                   <TableCell>{getRoleName(service.roleId)}</TableCell>
                   <TableCell>{service.duration} min</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell>
                     {service.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => handleDeleteService(service.id)}>
+                      <Trash className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

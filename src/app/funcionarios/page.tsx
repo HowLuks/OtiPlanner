@@ -266,11 +266,87 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
   )
 }
 
+function RoleManager({ roles, onAddRole, onUpdateRole }: { roles: Role[], onAddRole: (name: string) => void, onUpdateRole: (id: string, name: string) => void }) {
+  const [newRoleName, setNewRoleName] = useState('');
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editingRoleName, setEditingRoleName] = useState('');
+
+  const handleStartEdit = (role: Role) => {
+    setEditingRoleId(role.id);
+    setEditingRoleName(role.name);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRoleId(null);
+    setEditingRoleName('');
+  };
+
+  const handleUpdate = () => {
+    if (editingRoleId && editingRoleName.trim()) {
+      onUpdateRole(editingRoleId, editingRoleName.trim());
+      handleCancelEdit();
+    }
+  };
+
+  const handleAdd = () => {
+    if (newRoleName.trim()) {
+      onAddRole(newRoleName.trim());
+      setNewRoleName('');
+    }
+  };
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Gerenciar Funções</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label>Funções Existentes</Label>
+          <div className="space-y-2 rounded-md border p-2 max-h-60 overflow-y-auto">
+            {roles.map(role => (
+              <div key={role.id} className="flex items-center justify-between p-2 rounded-md hover:bg-accent">
+                {editingRoleId === role.id ? (
+                  <Input 
+                    value={editingRoleName}
+                    onChange={(e) => setEditingRoleName(e.target.value)}
+                    className="flex-1"
+                  />
+                ) : (
+                  <span className="flex-1">{role.name}</span>
+                )}
+                
+                {editingRoleId === role.id ? (
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={handleUpdate}>Salvar</Button>
+                    <Button variant="ghost" size="sm" onClick={handleCancelEdit}>Cancelar</Button>
+                  </div>
+                ) : (
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStartEdit(role)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2 border-t pt-4">
+          <Label htmlFor="new-role">Adicionar Nova Função</Label>
+          <div className="flex gap-2">
+            <Input id="new-role" placeholder="Nome da nova função" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} />
+            <Button onClick={handleAdd}>Adicionar</Button>
+          </div>
+        </div>
+      </div>
+    </DialogContent>
+  );
+}
+
+
 export default function FuncionariosPage() {
   const { funcionarios, roles, loading, confirmedAppointments, services } = useData();
 
   const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
-  const [newRoleName, setNewRoleName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
@@ -301,17 +377,24 @@ export default function FuncionariosPage() {
     return roles.find(role => role.id === roleId)?.name || 'Função não encontrada';
   }
 
-  const handleAddNewRole = async () => {
-    if (newRoleName.trim() !== '' && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
+  const handleAddNewRole = async (newRoleName: string) => {
+    if (newRoleName && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
         const newRoleId = `role-${roles.length + 1 + Date.now()}`;
         const newRole: Role = {
             id: newRoleId,
-            name: newRoleName.trim(),
+            name: newRoleName,
         };
       await setDoc(doc(db, 'roles', newRoleId), newRole);
-      setNewRoleName('');
     }
   };
+
+  const handleUpdateRole = async (roleId: string, newName: string) => {
+    if (newName && !roles.find(r => r.name.toLowerCase() === newName.toLowerCase() && r.id !== roleId)) {
+        const roleRef = doc(db, 'roles', roleId);
+        await setDoc(roleRef, { name: newName }, { merge: true });
+    }
+  };
+
 
   const handleAddNewEmployee = async () => {
     if (newEmployeeName.trim() && newEmployeeRoleId && funcionarios) {
@@ -395,26 +478,11 @@ export default function FuncionariosPage() {
              <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline">
-                  <Plus className="mr-2" />
-                  Nova Função
+                  <Edit className="mr-2" />
+                  Gerenciar Funções
                 </Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Adicionar Nova Função</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="new-role">Nome da Função</Label>
-                    <Input id="new-role" placeholder="Ex: Esteticista" value={newRoleName} onChange={e => setNewRoleName(e.target.value)} />
-                  </div>
-                  <div className="flex justify-end pt-4">
-                    <DialogClose asChild>
-                      <Button onClick={handleAddNewRole}>Salvar Função</Button>
-                    </DialogClose>
-                  </div>
-                </div>
-              </DialogContent>
+              <RoleManager roles={roles} onAddRole={handleAddNewRole} onUpdateRole={handleUpdateRole} />
             </Dialog>
             <Dialog>
               <DialogTrigger asChild>
