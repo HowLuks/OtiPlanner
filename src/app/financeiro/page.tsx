@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Transaction } from "@/lib/data";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -23,7 +23,7 @@ function TransactionDialog({
     children 
 } : {
     transaction: Partial<Transaction> | null,
-    onSave: (transaction: Omit<Transaction, 'id'>) => void,
+    onSave: (transaction: Omit<Transaction, 'id' | 'appointmentId'>, value: number) => void,
     children: React.ReactNode
 }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -36,13 +36,16 @@ function TransactionDialog({
         setDate(transaction?.date || new Date().toISOString().split('T')[0]);
         setDescription(transaction?.description || '');
         setType(transaction?.type || 'Entrada');
-        const numericValue = transaction?.value ? transaction.value.replace(/[^0-9,.]/g, '').replace('.', '').replace(',', '.') : '';
+        const numericValue = transaction?.value ? String(parseFloat(transaction.value.replace(/[^0-9,.]/g, '').replace('.', '').replace(',', '.'))) : '';
         setValue(numericValue);
         setIsOpen(true);
     }
     
     const handleSave = () => {
-        const formattedValue = parseFloat(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const numericValue = parseFloat(value);
+        if (isNaN(numericValue)) return;
+        
+        const formattedValue = numericValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
         onSave({
             date,
@@ -50,7 +53,7 @@ function TransactionDialog({
             type,
             value: formattedValue,
             isIncome: type === 'Entrada'
-        });
+        }, numericValue);
         setIsOpen(false);
     }
 
@@ -64,19 +67,19 @@ function TransactionDialog({
                  <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="date">Data</Label>
-                        <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} />
+                        <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} disabled={!!transaction?.appointmentId} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="description">Descrição</Label>
-                        <Input id="description" value={description} onChange={e => setDescription(e.target.value)} />
+                        <Input id="description" value={description} onChange={e => setDescription(e.target.value)} disabled={!!transaction?.appointmentId} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="value">Valor (R$)</Label>
-                        <Input id="value" type="number" value={value} onChange={e => setValue(e.target.value)} placeholder="0.00" />
+                        <Input id="value" type="number" value={value} onChange={e => setValue(e.target.value)} placeholder="0.00" disabled={!!transaction?.appointmentId} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="type">Tipo</Label>
-                         <Select value={type} onValueChange={(v: 'Entrada' | 'Saída') => setType(v)}>
+                         <Select value={type} onValueChange={(v: 'Entrada' | 'Saída') => setType(v)} disabled={!!transaction?.appointmentId}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Selecione o tipo" />
                             </SelectTrigger>
@@ -88,7 +91,7 @@ function TransactionDialog({
                     </div>
                 </div>
                 <div className="flex justify-end pt-4">
-                    <Button onClick={handleSave}>Salvar</Button>
+                    <Button onClick={handleSave} disabled={!!transaction?.appointmentId}>Salvar</Button>
                 </div>
             </DialogContent>
         </Dialog>
@@ -96,13 +99,34 @@ function TransactionDialog({
 }
 
 export default function FinanceiroPage() {
-    const { transactions, loading } = useData();
+    const { transactions, saldoEmCaixa, loading } = useData();
     const { toast } = useToast();
 
-    const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id'>, id?: string) => {
+    const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'appointmentId'>, numericValue: number, id?: string) => {
         const transactionId = id || `trans-${Date.now()}`;
         try {
-            await setDoc(doc(db, 'transactions', transactionId), transactionData, { merge: true });
+            const batch = writeBatch(db);
+            const transactionRef = doc(db, 'transactions', transactionId);
+            
+            let newSaldo = saldoEmCaixa;
+            
+            if (id) { // Editing existing transaction
+                const originalTransaction = transactions.find(t => t.id === id);
+                if (originalTransaction) {
+                    const originalValue = parseFloat(originalTransaction.value.replace('R$', '').replace('.', '').replace(',', '.'));
+                    // Revert original value
+                    newSaldo -= originalTransaction.isIncome ? originalValue : -originalValue;
+                }
+            }
+
+            // Apply new value
+            newSaldo += transactionData.isIncome ? numericValue : -numericValue;
+            
+            batch.set(transactionRef, transactionData, { merge: true });
+            batch.set(doc(db, 'appState', 'saldoEmCaixa'), { value: newSaldo });
+            
+            await batch.commit();
+
             toast({
                 title: 'Sucesso!',
                 description: `Transação ${id ? 'atualizada' : 'criada'} com sucesso.`
@@ -117,10 +141,27 @@ export default function FinanceiroPage() {
         }
     };
 
-    const handleDeleteTransaction = async (id: string) => {
+    const handleDeleteTransaction = async (transaction: Transaction) => {
+        if(transaction.appointmentId) {
+             toast({
+                variant: 'destructive',
+                title: 'Ação não permitida',
+                description: 'Transações de agendamentos não podem ser deletadas diretamente. Exclua o agendamento correspondente.'
+            });
+            return;
+        }
+
         if(window.confirm('Tem certeza que deseja deletar esta transação?')) {
             try {
-                await deleteDoc(doc(db, 'transactions', id));
+                const batch = writeBatch(db);
+                const value = parseFloat(transaction.value.replace('R$', '').replace('.', '').replace(',', '.'));
+                const newSaldo = saldoEmCaixa - (transaction.isIncome ? value : -value);
+
+                batch.delete(doc(db, 'transactions', transaction.id));
+                batch.set(doc(db, 'appState', 'saldoEmCaixa'), { value: newSaldo });
+
+                await batch.commit();
+
                 toast({
                     title: 'Sucesso!',
                     description: 'Transação deletada com sucesso.'
@@ -177,7 +218,7 @@ export default function FinanceiroPage() {
                     <div>
                         <h1 className="text-4xl font-bold tracking-tight">Financeiro</h1>
                     </div>
-                    <TransactionDialog transaction={null} onSave={(data) => handleSaveTransaction(data)}>
+                    <TransactionDialog transaction={null} onSave={(data, value) => handleSaveTransaction(data, value)}>
                         <Button className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-105">
                             <Plus className="mr-2" />
                             <span className="truncate">Nova Transação</span>
@@ -213,9 +254,9 @@ export default function FinanceiroPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {transactions.map((transaction) => (
+                                {transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((transaction) => (
                                     <TableRow key={transaction.id}>
-                                        <TableCell className="font-medium text-muted-foreground">{transaction.date}</TableCell>
+                                        <TableCell className="font-medium text-muted-foreground">{new Date(transaction.date + 'T00:00:00').toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</TableCell>
                                         <TableCell className="text-muted-foreground">{transaction.description}</TableCell>
                                         <TableCell>
                                             <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${transaction.isIncome ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>{transaction.type}</span>
@@ -223,12 +264,12 @@ export default function FinanceiroPage() {
                                         <TableCell className={`font-medium ${transaction.isIncome ? 'text-green-500' : 'text-red-500'}`}>{transaction.value}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <TransactionDialog transaction={transaction} onSave={(data) => handleSaveTransaction(data, transaction.id)}>
-                                                    <Button variant="ghost" size="icon">
+                                                <TransactionDialog transaction={transaction} onSave={(data, value) => handleSaveTransaction(data, value, transaction.id)}>
+                                                    <Button variant="ghost" size="icon" disabled={!!transaction.appointmentId}>
                                                         <Edit className="h-4 w-4" />
                                                     </Button>
                                                 </TransactionDialog>
-                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteTransaction(transaction.id)}>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteTransaction(transaction)} disabled={!!transaction.appointmentId}>
                                                     <Trash className="h-4 w-4 text-destructive" />
                                                 </Button>
                                             </div>

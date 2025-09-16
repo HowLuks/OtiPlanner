@@ -13,14 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
-import { Funcionario, Appointment, PendingAppointment } from '@/lib/data';
+import { Funcionario, Appointment, PendingAppointment, Service } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { dayLabels } from '@/lib/constants';
-import { updateStaffSales } from '@/lib/actions';
+import { updateStaffSales, createTransactionForAppointment } from '@/lib/actions';
 
 export default function Home() {
   const { 
@@ -32,6 +32,7 @@ export default function Home() {
     workSchedules,
     appSettings,
     staffQueue,
+    saldoEmCaixa,
     loading: dataLoading 
   } = useData();
 
@@ -123,7 +124,7 @@ export default function Home() {
     return false;
   };
   
-    const findAvailableStaffAndAssign = async (service: typeof selectedService, date: string, time: string): Promise<boolean> => {
+    const findAvailableStaffAndAssign = async (service: Service, date: string, time: string): Promise<boolean> => {
         if(!service) return false;
 
         const qualifiedStaff = funcionarios.filter(f => f.roleId === service.roleId);
@@ -173,6 +174,8 @@ export default function Home() {
             };
             await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
             await updateStaffSales(assignedStaffMember, service, 'add');
+            await createTransactionForAppointment(newConfirmedAppointment, service, assignedStaffMember, saldoEmCaixa);
+
 
             // Update queue: move the assigned staff to the end
             const newQueue = globalQueue.filter(id => id !== assignedStaffId);
@@ -253,6 +256,7 @@ export default function Home() {
             };
             await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
             await updateStaffSales(staffMember, selectedService, 'add');
+            await createTransactionForAppointment(newConfirmedAppointment, selectedService, staffMember, saldoEmCaixa);
             success = true;
         }
     } 

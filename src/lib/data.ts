@@ -144,13 +144,14 @@ export type Transaction = {
   type: 'Entrada' | 'Saída';
   value: string;
   isIncome: boolean;
+  appointmentId?: string; // Link to the appointment
 };
 
 export const initialTransactions: Transaction[] = [
     { id: 'trans-1', date: '2024-08-01', description: 'Serviços de beleza (semana)', type: 'Entrada', value: 'R$ 3.250,00', isIncome: true },
     { id: 'trans-2', date: '2024-08-02', description: 'Compra de esmaltes e produtos', type: 'Saída', value: 'R$ 800,00', isIncome: false },
     { id: 'trans-3', date: '2024-08-03', description: 'Pagamento conta de luz', type: 'Saída', value: 'R$ 450,00', isIncome: false },
-    { id: 'trans-4', date: '2024-08-05', description: 'Serviço de massoterapia', type: 'Entrada', value: 'R$ 600,00', isIncome: true },
+    { id: 'trans-4', date: '2024-8-05', description: 'Serviço de massoterapia', type: 'Entrada', value: 'R$ 600,00', isIncome: true },
     { id: 'trans-5', date: '2024-08-07', description: 'Pagamento de salários', type: 'Saída', value: 'R$ 6.500,00', isIncome: false },
 ];
 

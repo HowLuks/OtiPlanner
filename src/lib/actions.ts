@@ -1,8 +1,8 @@
 'use server';
 
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Funcionario, Service } from '@/lib/data';
+import { Funcionario, Service, Transaction, Appointment } from '@/lib/data';
 
 /**
  * Updates the sales value and goal percentage for a given staff member.
@@ -37,3 +37,45 @@ export async function updateStaffSales(
   await setDoc(funcDocRef, updatedFunc, { merge: true });
 }
 
+export async function createTransactionForAppointment(
+    appointment: Appointment,
+    service: Service,
+    staff: Funcionario,
+    saldoAtual: number
+) {
+    const transactionId = `trans-app-${appointment.id}`;
+    const formattedDate = new Date(`${appointment.date}T00:00:00`).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+
+    const newTransaction: Omit<Transaction, 'id'> = {
+        date: appointment.date,
+        description: `${service.name} - ${staff.name} - ${formattedDate}`,
+        type: 'Entrada',
+        value: service.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        isIncome: true,
+        appointmentId: appointment.id
+    };
+
+    const newSaldo = saldoAtual + service.price;
+
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'transactions', transactionId), newTransaction);
+    batch.set(doc(db, 'appState', 'saldoEmCaixa'), { value: newSaldo });
+
+    await batch.commit();
+}
+
+
+export async function deleteTransactionForAppointment(
+    appointmentId: string,
+    servicePrice: number,
+    saldoAtual: number
+) {
+    const transactionId = `trans-app-${appointmentId}`;
+    const newSaldo = saldoAtual - servicePrice;
+
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'transactions', transactionId));
+    batch.set(doc(db, 'appState', 'saldoEmCaixa'), { value: newSaldo });
+    
+    await batch.commit();
+}

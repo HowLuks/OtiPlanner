@@ -16,7 +16,7 @@ import { PendingAppointment, Appointment } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
-import { updateStaffSales } from '@/lib/actions';
+import { updateStaffSales, createTransactionForAppointment } from '@/lib/actions';
 
 
 function PendingAppointmentCard({ 
@@ -26,7 +26,7 @@ function PendingAppointmentCard({
   appointment: PendingAppointment;
   isTimeBlocked: (staffId: string, date: string, time: string, serviceDuration: number) => string | false;
 }) {
-  const { services, funcionarios } = useData();
+  const { services, funcionarios, saldoEmCaixa } = useData();
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
@@ -96,6 +96,8 @@ function PendingAppointmentCard({
           await deleteDoc(doc(db, 'pendingAppointments', appointment.id));
 
           await updateStaffSales(staffMember, service, 'add');
+          await createTransactionForAppointment(newConfirmedAppointment, service, staffMember, saldoEmCaixa);
+
 
           setIsOpen(false);
           toast({
@@ -277,4 +279,3 @@ export function PendingAppointments({
     </Card>
   );
 }
-

@@ -18,7 +18,7 @@ import { Funcionario, Appointment, Service } from "@/lib/data";
 import { db } from "@/lib/firebase";
 import { doc, deleteDoc } from 'firebase/firestore';
 import { useData } from "@/contexts/data-context";
-import { updateStaffSales } from "@/lib/actions";
+import { updateStaffSales, deleteTransactionForAppointment } from "@/lib/actions";
 
 
 interface ConfirmedAppointmentsProps {
@@ -29,7 +29,7 @@ export function ConfirmedAppointments({
   selectedDate
 }: ConfirmedAppointmentsProps) {
   const [isClient, setIsClient] = useState(false);
-  const { confirmedAppointments, funcionarios, services } = useData();
+  const { confirmedAppointments, funcionarios, services, saldoEmCaixa } = useData();
 
   useEffect(() => {
     setIsClient(true);
@@ -54,15 +54,16 @@ export function ConfirmedAppointments({
   }, [confirmedAppointments, selectedDate, isClient]);
 
   const handleDelete = async (appointmentToDelete: Appointment) => {
-    if(window.confirm("Tem certeza que deseja excluir este agendamento?")){
+    if(window.confirm("Tem certeza que deseja excluir este agendamento? Esta ação também removerá a transação financeira associada.")){
       const staffMember = getStaffMember(appointmentToDelete.staffId);
       const service = getService(appointmentToDelete.serviceId);
 
       if (staffMember && service) {
         await deleteDoc(doc(db, "confirmedAppointments", appointmentToDelete.id));
         await updateStaffSales(staffMember, service, 'subtract');
+        await deleteTransactionForAppointment(appointmentToDelete.id, service.price, saldoEmCaixa);
       } else {
-        console.error("Não foi possível encontrar o funcionário ou serviço para atualizar as vendas.");
+        console.error("Não foi possível encontrar o funcionário ou serviço para atualizar as vendas e finanças.");
       }
     }
   };
