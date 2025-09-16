@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { collection, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
-import { Appointment, EmployeePerformance, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings } from '@/lib/data';
+import { Appointment, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings } from '@/lib/data';
 
 interface DataContextType {
   services: Service[];
@@ -13,7 +13,6 @@ interface DataContextType {
   confirmedAppointments: Appointment[];
   pendingAppointments: PendingAppointment[];
   transactions: Transaction[];
-  employeePerformance: EmployeePerformance[];
   blocks: Block[];
   workSchedules: WorkSchedule[];
   appSettings: AppSettings | null;
@@ -28,7 +27,6 @@ const DataContext = createContext<DataContextType>({
   confirmedAppointments: [],
   pendingAppointments: [],
   transactions: [],
-  employeePerformance: [],
   blocks: [],
   workSchedules: [],
   appSettings: null,
@@ -45,7 +43,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     confirmedAppointments: [],
     pendingAppointments: [],
     transactions: [],
-    employeePerformance: [],
     blocks: [],
     workSchedules: [],
     appSettings: null,
@@ -68,7 +65,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         confirmedAppointments: [],
         pendingAppointments: [],
         transactions: [],
-        employeePerformance: [],
         blocks: [],
         workSchedules: [],
         appSettings: null,
@@ -86,7 +82,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         confirmedAppointments: collection(db, 'confirmedAppointments'),
         pendingAppointments: collection(db, 'pendingAppointments'),
         transactions: collection(db, 'transactions'),
-        employeePerformance: collection(db, 'employeePerformance'),
         blocks: collection(db, 'blocks'),
         workSchedules: collection(db, 'workSchedules'),
     };
@@ -111,16 +106,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     const unsubscribes = Object.entries(listenersToAttach).map(([key, ref]) => 
       onSnapshot(ref, (snapshot: any) => {
-        if (key === 'employeePerformance') {
-            // Do not process this collection anymore but mark as loaded
-            if (!initialLoadFlags[key]) {
-              initialLoadFlags[key] = true;
-              checkAllDataLoaded();
-            }
-            setData(prevData => ({ ...prevData, employeePerformance: [] }));
-            return;
-        }
-
         if (ref.type === 'document') { // Single Doc
           const docData = snapshot.data();
           const value = docData ? (key === 'saldoEmCaixa' ? docData.value : { ...docData, id: snapshot.id }) : (key === 'saldoEmCaixa' ? 0 : null);
