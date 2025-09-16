@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { usePathname } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -27,8 +26,6 @@ const navLinks = [
   { href: "/financeiro", label: "Financeiro" },
   { href: "/configuracoes", label: "Configurações" },
 ];
-
-const userAvatar = PlaceHolderImages.find(img => img.id === 'user-avatar');
 
 export function AppHeader() {
   const pathname = usePathname();
@@ -108,11 +105,6 @@ export function AppHeader() {
                 </SheetContent>
             </Sheet>
         </div>
-
-        <Avatar className="h-10 w-10">
-            {userAvatar && <AvatarImage src={userAvatar.imageUrl} alt="User Avatar" data-ai-hint={userAvatar.imageHint || 'profile person'} />}
-            <AvatarFallback>AV</AvatarFallback>
-        </Avatar>
       </div>
     </header>
   );
