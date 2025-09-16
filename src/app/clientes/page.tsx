@@ -12,10 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { User, Phone, Calendar as CalendarIcon, History, Plus } from "lucide-react";
+import { User, Phone, Calendar as CalendarIcon, History, Plus, MessageCircle } from "lucide-react";
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 
 function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
@@ -92,7 +94,7 @@ function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="client-whatsapp">WhatsApp</Label>
-                        <Input id="client-whatsapp" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="Número do WhatsApp" />
+                        <Input id="client-whatsapp" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="Número do WhatsApp com DDD" />
                     </div>
                 </div>
                 <div className="flex justify-end pt-2">
@@ -103,6 +105,109 @@ function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
     );
 }
 
+function BroadcastDialog({ clientData }: { clientData: { client: Client; lastAppointmentDate: Date | null; isActive: boolean; }[] }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [message, setMessage] = useState('');
+    const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
+    const [generatedLinks, setGeneratedLinks] = useState<{ name: string; link: string; }[]>([]);
+
+    const generateLinks = () => {
+        const sixtyDaysAgo = subDays(new Date(), 60);
+        let targetClients: Client[] = [];
+
+        const clientsWithWhatsapp = clientData.filter(cd => cd.client.whatsapp).map(cd => cd.client);
+
+        if (filter === 'all') {
+            targetClients = clientsWithWhatsapp;
+        } else if (filter === 'active') {
+            targetClients = clientData.filter(cd => cd.isActive && cd.client.whatsapp).map(cd => cd.client);
+        } else { // inactive
+            targetClients = clientData.filter(cd => !cd.isActive && cd.client.whatsapp).map(cd => cd.client);
+        }
+        
+        const encodedMessage = encodeURIComponent(message);
+        const links = targetClients.map(client => {
+            // Basic normalization: remove non-digits
+            const phone = client.whatsapp.replace(/\D/g, '');
+            return {
+                name: client.name,
+                link: `https://wa.me/${phone}?text=${encodedMessage}`
+            }
+        });
+        setGeneratedLinks(links);
+    };
+
+    const handleOpenChange = (open: boolean) => {
+        setIsOpen(open);
+        if (!open) {
+            // Reset state when closing
+            setMessage('');
+            setFilter('all');
+            setGeneratedLinks([]);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Fazer Disparos
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Disparo de Mensagens via WhatsApp</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Selecione o público</Label>
+                        <RadioGroup value={filter} onValueChange={(v: 'all' | 'active' | 'inactive') => setFilter(v)} className="flex gap-4">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="all" id="filter-all" />
+                                <Label htmlFor="filter-all">Todos</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="active" id="filter-active" />
+                                <Label htmlFor="filter-active">Ativos</Label>
+                            </div>
+                             <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="inactive" id="filter-inactive" />
+                                <Label htmlFor="filter-inactive">Inativos</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="broadcast-message">Mensagem</Label>
+                        <Textarea
+                            id="broadcast-message"
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            placeholder="Digite sua mensagem aqui... ela será pré-preenchida no WhatsApp de cada cliente."
+                            rows={5}
+                        />
+                    </div>
+                </div>
+                {generatedLinks.length > 0 ? (
+                    <div className="space-y-3 pt-4 border-t max-h-[40vh] overflow-y-auto">
+                        <h4 className="font-medium">Links Gerados</h4>
+                         {generatedLinks.map(({ name, link }) => (
+                            <Button key={link} asChild variant="secondary" className="w-full justify-start">
+                                <a href={link} target="_blank" rel="noopener noreferrer">
+                                    Enviar para {name}
+                                </a>
+                            </Button>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex justify-end pt-2">
+                        <Button onClick={generateLinks} disabled={!message.trim()}>Gerar Links de Disparo</Button>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 function ClientHistoryDialog({ client, appointments, services }: { client: Client, appointments: Appointment[], services: Service[] }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -158,9 +263,7 @@ function ClientHistoryDialog({ client, appointments, services }: { client: Clien
     );
 }
 
-function ClientCard({ client, lastAppointmentDate, services, allAppointments }: { client: Client, lastAppointmentDate: Date | null, services: Service[], allAppointments: Appointment[] }) {
-    const sixtyDaysAgo = subDays(new Date(), 60);
-    const isActive = lastAppointmentDate ? isAfter(lastAppointmentDate, sixtyDaysAgo) : false;
+function ClientCard({ client, lastAppointmentDate, isActive, services, allAppointments }: { client: Client, lastAppointmentDate: Date | null, isActive: boolean, services: Service[], allAppointments: Appointment[] }) {
 
     return (
         <Card>
@@ -193,18 +296,23 @@ function ClientCard({ client, lastAppointmentDate, services, allAppointments }: 
 }
 
 export default function ClientesPage() {
-    const { clients, confirmedAppointments, services, loading } = useData();
+    const { clients, confirmedAppointments, services, loading, fetchData } = useData();
 
     const clientData = useMemo(() => {
+        const sixtyDaysAgo = subDays(new Date(), 60);
         return clients.map(client => {
             const clientApps = confirmedAppointments
                 .filter(app => app.client.toLowerCase() === client.name.toLowerCase())
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             
             const lastAppointment = clientApps[0];
+            const lastAppointmentDate = lastAppointment ? new Date(lastAppointment.date + 'T00:00:00') : null
+            const isActive = lastAppointmentDate ? isAfter(lastAppointmentDate, sixtyDaysAgo) : false;
+
             return {
                 client,
-                lastAppointmentDate: lastAppointment ? new Date(lastAppointment.date + 'T00:00:00') : null
+                lastAppointmentDate,
+                isActive
             };
         }).sort((a, b) => {
             if (!a.lastAppointmentDate) return 1;
@@ -219,7 +327,10 @@ export default function ClientesPage() {
             <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
                  <div className="flex items-center justify-between mb-8">
                     <Skeleton className="h-9 w-48" />
-                    <Skeleton className="h-10 w-36" />
+                    <div className="flex gap-2">
+                        <Skeleton className="h-10 w-36" />
+                        <Skeleton className="h-10 w-36" />
+                    </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     <Skeleton className="h-56" />
@@ -235,9 +346,12 @@ export default function ClientesPage() {
 
     return (
         <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
                 <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-                <AddClientDialog onClientAdded={() => {}} />
+                <div className="flex items-center gap-2">
+                    <BroadcastDialog clientData={clientData} />
+                    <AddClientDialog onClientAdded={fetchData} />
+                </div>
             </div>
             
             {clientData.length > 0 ? (
@@ -247,6 +361,7 @@ export default function ClientesPage() {
                             key={data.client.id}
                             client={data.client}
                             lastAppointmentDate={data.lastAppointmentDate}
+                            isActive={data.isActive}
                             services={services}
                             allAppointments={confirmedAppointments}
                         />
@@ -264,3 +379,5 @@ export default function ClientesPage() {
         </main>
     )
 }
+
+    
