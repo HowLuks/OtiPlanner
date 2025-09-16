@@ -153,33 +153,38 @@ export default function Home() {
   };
   
     const findAvailableStaffAndAssign = async (service: Service, date: string, time: string): Promise<boolean> => {
-        if (!staffQueue || staffQueue.staffIds.length === 0) {
-            setConflictError("Não há funcionários na fila de atribuição.");
-            return false;
-        }
-
         const qualifiedStaffIds = funcionarios
             .filter(f => f.roleId === service.roleId)
             .map(f => f.id);
+            
+        if (qualifiedStaffIds.length === 0) {
+            setConflictError("Não há funcionários qualificados para este serviço.");
+            return false;
+        }
 
-        const currentQueue = staffQueue.staffIds.filter(id => qualifiedStaffIds.includes(id));
+        const queue = staffQueue ? staffQueue.staffIds : [];
         
+        // Order qualified staff by their position in the queue
+        const potentialStaff = qualifiedStaffIds
+            .map(id => ({ id, index: queue.indexOf(id) }))
+            .sort((a, b) => {
+                if (a.index === -1) return 1; // move to end if not in queue
+                if (b.index === -1) return -1;
+                return a.index - b.index;
+            })
+            .map(item => item.id);
+
+
         let assignedStaffId: string | null = null;
-        let staffToMoveToEnd: string | null = null;
-        const originalQueue = [...currentQueue]; // copy to not lose original order
-        let found = false;
-
-
-        while(currentQueue.length > 0 && !found) {
-            const staffId = currentQueue.shift(); // take from front
-            if(staffId && !isTimeBlocked(staffId, date, time, service.duration)){
+        
+        for(const staffId of potentialStaff) {
+            if(!isTimeBlocked(staffId, date, time, service.duration)){
                 assignedStaffId = staffId;
-                staffToMoveToEnd = staffId;
-                found = true;
+                break;
             }
         }
         
-        if (assignedStaffId && staffToMoveToEnd) {
+        if (assignedStaffId) {
             const newId = `c${(confirmedAppointments?.length || 0) + Date.now()}`;
             const newConfirmedAppointment: Appointment = {
                 id: newId,
@@ -192,17 +197,12 @@ export default function Home() {
             await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
             await updateStaffSales(assignedStaffId, service.id, 'add');
 
-            // Update queue: move the assigned staff to the end of the original qualified queue
-            const finalQueue = originalQueue.filter(id => id !== staffToMoveToEnd);
-            finalQueue.push(staffToMoveToEnd);
-
-            const allStaffIds = funcionarios.map(f => f.id);
-            const nonQualifiedIds = allStaffIds.filter(id => !qualifiedStaffIds.includes(id));
-            const newGlobalQueue = [...finalQueue, ...nonQualifiedIds];
-
+            // Update queue: move the assigned staff to the end
+            const newQueue = queue.filter(id => id !== assignedStaffId);
+            newQueue.push(assignedStaffId);
 
             const queueRef = doc(db, 'appState', 'staffQueue');
-            await updateDoc(queueRef, { staffIds: newGlobalQueue });
+            await updateDoc(queueRef, { staffIds: newQueue });
             
             const assignedStaffMember = funcionarios.find(f => f.id === assignedStaffId);
             toast({
