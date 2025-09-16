@@ -161,21 +161,18 @@ export default function Home() {
         }
 
         const globalQueue = staffQueue ? staffQueue.staffIds : [];
-        
-        // Order qualified staff by their position in the global queue
-        const potentialStaff = qualifiedStaff
-            .map(staff => ({ staff, index: globalQueue.indexOf(staff.id) }))
-            .sort((a, b) => {
-                if (a.index === -1 && b.index === -1) return 0; // both not in queue
-                if (a.index === -1) return 1; // a is not in queue, move to end
-                if (b.index === -1) return -1; // b is not in queue, move to end
-                return a.index - b.index;
-            })
-            .map(item => item.staff);
 
+        // Correctly order staff: those in the queue first, respecting queue order, then those not in the queue.
+        const staffInQueue = globalQueue
+          .map(staffId => qualifiedStaff.find(s => s.id === staffId))
+          .filter((s): s is Funcionario => s !== undefined);
+          
+        const staffNotInQueue = qualifiedStaff.filter(s => !globalQueue.includes(s.id));
+
+        const potentialStaff = [...staffInQueue, ...staffNotInQueue];
 
         if (potentialStaff.length === 0) {
-            setConflictError("Não há funcionários na fila de atribuição.");
+            setConflictError("Não há funcionários disponíveis para atribuição.");
             return false;
         }
 
@@ -406,7 +403,7 @@ export default function Home() {
                     </>
                   )}
                   
-                  {!appSettings?.manualSelection && appointmentStatus === 'confirmed' && !selectedStaffId && (
+                  {!appSettings?.manualSelection && (
                      <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="staff" className="text-right">
                             Profissional
