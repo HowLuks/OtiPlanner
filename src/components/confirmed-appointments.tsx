@@ -13,10 +13,10 @@ import {
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash } from "lucide-react";
+import { Trash } from "lucide-react";
 import { Funcionario, Appointment, Service } from "@/lib/data";
 import { db } from "@/lib/firebase";
-import { doc, deleteDoc } from "firebase/firestore";
+import { doc, deleteDoc } from 'firebase/firestore';
 import { useData } from "@/contexts/data-context";
 import { updateStaffSales } from "@/lib/actions";
 
@@ -103,9 +103,6 @@ export function ConfirmedAppointments({
                         )}
                       </TableCell>
                        <TableCell className="px-6 py-4 text-right">
-                          <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-primary">
-                            <Edit className="h-4 w-4" />
-                          </Button>
                           <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => handleDelete(appointment)}>
                             <Trash className="h-4 w-4" />
                           </Button>
