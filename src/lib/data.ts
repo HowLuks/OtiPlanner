@@ -86,6 +86,7 @@ export type WorkSchedule = {
 export type AppSettings = {
     id: 'settings';
     manualSelection: boolean;
+    appointmentWebhookUrl?: string;
 };
 
 export type StaffQueue = {

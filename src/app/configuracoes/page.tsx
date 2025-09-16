@@ -20,6 +20,7 @@ export default function ConfiguracoesPage() {
     const { funcionarios, workSchedules, appSettings, loading } = useData();
     const [selectedStaffId, setSelectedStaffId] = useState('');
     const [manualSelectionEnabled, setManualSelectionEnabled] = useState(false);
+    const [webhookUrl, setWebhookUrl] = useState('');
     const { toast } = useToast();
 
     const [currentSchedule, setCurrentSchedule] = useState<WorkSchedule | null>(null);
@@ -27,6 +28,7 @@ export default function ConfiguracoesPage() {
     useEffect(() => {
         if (appSettings) {
             setManualSelectionEnabled(appSettings.manualSelection);
+            setWebhookUrl(appSettings.appointmentWebhookUrl || '');
         }
     }, [appSettings]);
 
@@ -110,11 +112,31 @@ export default function ConfiguracoesPage() {
         }
     }
 
+    const handleSaveWebhookUrl = async () => {
+        try {
+            const settingsRef = doc(db, 'appState', 'settings');
+            await setDoc(settingsRef, { appointmentWebhookUrl: webhookUrl }, { merge: true });
+            toast({
+                title: "Sucesso!",
+                description: "URL do webhook salva com sucesso.",
+            });
+        } catch (error) {
+            console.error("Erro ao salvar URL do webhook: ", error);
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Não foi possível salvar a URL do webhook.",
+            });
+        }
+    };
+
+
     if (loading) {
         return (
             <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
                 <Skeleton className="h-9 w-64 mb-8" />
                 <div className="space-y-8">
+                    <Skeleton className="h-48 w-full" />
                     <Skeleton className="h-48 w-full" />
                     <Skeleton className="h-48 w-full" />
                 </div>
@@ -193,8 +215,31 @@ export default function ConfiguracoesPage() {
                         </div>
                     </CardContent>
                 </Card>
+
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Webhook de Lembrete de Agendamento</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div>
+                             <p className="text-sm text-muted-foreground mb-2">
+                                Forneça a URL para a qual os lembretes de agendamento do dia seguinte serão enviados (via POST).
+                                Configure um serviço de cron job externo para chamar <code>/api/appointments/trigger-reminders</code> diariamente.
+                            </p>
+                            <Label htmlFor="webhook-url">URL do Webhook</Label>
+                            <div className="flex gap-2">
+                                <Input 
+                                    id="webhook-url" 
+                                    placeholder="https://seu-servico.com/webhook"
+                                    value={webhookUrl}
+                                    onChange={(e) => setWebhookUrl(e.target.value)}
+                                />
+                                <Button onClick={handleSaveWebhookUrl}>Salvar</Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </main>
     );
 }
-
