@@ -1,6 +1,6 @@
 'use server';
 
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Funcionario, Service, Transaction, Appointment } from '@/lib/data';
 
