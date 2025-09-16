@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { User, Phone, Calendar as CalendarIcon, History, Plus, MessageCircle } from "lucide-react";
-import { doc, setDoc } from 'firebase/firestore';
+import { User, Phone, Calendar as CalendarIcon, History, Plus, MessageCircle, Trash } from "lucide-react";
+import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
@@ -263,7 +263,7 @@ function ClientHistoryDialog({ client, appointments, services }: { client: Clien
     );
 }
 
-function ClientCard({ client, lastAppointmentDate, isActive, services, allAppointments }: { client: Client, lastAppointmentDate: Date | null, isActive: boolean, services: Service[], allAppointments: Appointment[] }) {
+function ClientCard({ client, lastAppointmentDate, isActive, services, allAppointments, onDelete }: { client: Client, lastAppointmentDate: Date | null, isActive: boolean, services: Service[], allAppointments: Appointment[], onDelete: (clientId: string) => void }) {
 
     return (
         <Card>
@@ -287,7 +287,10 @@ function ClientCard({ client, lastAppointmentDate, isActive, services, allAppoin
                     <CalendarIcon className="h-4 w-4" />
                     <span>Última visita: {lastAppointmentDate ? lastAppointmentDate.toLocaleDateString('pt-BR') : 'N/A'}</span>
                 </div>
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end items-center pt-2 gap-2">
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => onDelete(client.id)}>
+                        <Trash className="h-4 w-4" />
+                    </Button>
                     <ClientHistoryDialog client={client} appointments={allAppointments} services={services} />
                 </div>
             </CardContent>
@@ -297,6 +300,7 @@ function ClientCard({ client, lastAppointmentDate, isActive, services, allAppoin
 
 export default function ClientesPage() {
     const { clients, confirmedAppointments, services, loading, fetchData } = useData();
+    const { toast } = useToast();
 
     const clientData = useMemo(() => {
         const sixtyDaysAgo = subDays(new Date(), 60);
@@ -320,6 +324,25 @@ export default function ClientesPage() {
             return b.lastAppointmentDate.getTime() - a.lastAppointmentDate.getTime();
         });
     }, [clients, confirmedAppointments]);
+    
+    const handleDeleteClient = async (clientId: string) => {
+        if(window.confirm('Tem certeza que deseja deletar este cliente? Esta ação não pode ser desfeita.')) {
+            try {
+                await deleteDoc(doc(db, 'clients', clientId));
+                toast({
+                    title: "Sucesso!",
+                    description: "Cliente deletado com sucesso.",
+                });
+            } catch (error) {
+                 console.error("Erro ao deletar cliente:", error);
+                 toast({
+                    variant: "destructive",
+                    title: "Erro",
+                    description: "Não foi possível deletar o cliente.",
+                });
+            }
+        }
+    };
 
 
     if (loading) {
@@ -364,6 +387,7 @@ export default function ClientesPage() {
                             isActive={data.isActive}
                             services={services}
                             allAppointments={confirmedAppointments}
+                            onDelete={handleDeleteClient}
                         />
                     ))}
                 </div>
@@ -379,5 +403,7 @@ export default function ClientesPage() {
         </main>
     )
 }
+
+    
 
     
