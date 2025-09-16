@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useData } from "@/contexts/data-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Client, Appointment, Service } from "@/lib/data";
-import { subDays, isAfter } from 'date-fns';
+import { subDays, isAfter, subYears } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { User, Phone, Calendar as CalendarIcon, History, Plus, MessageCircle, Trash } from "lucide-react";
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
@@ -112,7 +112,6 @@ function BroadcastDialog({ clientData }: { clientData: { client: Client; lastApp
     const [generatedLinks, setGeneratedLinks] = useState<{ name: string; link: string; }[]>([]);
 
     const generateLinks = () => {
-        const sixtyDaysAgo = subDays(new Date(), 60);
         let targetClients: Client[] = [];
 
         const clientsWithWhatsapp = clientData.filter(cd => cd.client.whatsapp).map(cd => cd.client);
@@ -324,6 +323,34 @@ export default function ClientesPage() {
             return b.lastAppointmentDate.getTime() - a.lastAppointmentDate.getTime();
         });
     }, [clients, confirmedAppointments]);
+
+    useEffect(() => {
+        if (loading) return;
+
+        const oneYearAgo = subYears(new Date(), 1);
+        const clientsToDelete = clientData.filter(cd => {
+            // Clientes sem agendamento são considerados inativos para deleção
+            if (!cd.lastAppointmentDate) return true;
+            // Clientes com último agendamento há mais de um ano
+            return isAfter(oneYearAgo, cd.lastAppointmentDate);
+        });
+
+        if (clientsToDelete.length > 0) {
+            const deletePromises = clientsToDelete.map(cd => deleteDoc(doc(db, 'clients', cd.client.id)));
+            
+            Promise.all(deletePromises)
+                .then(() => {
+                    console.log(`${clientsToDelete.length} clientes inativos foram deletados.`);
+                    toast({
+                        title: "Limpeza Automática",
+                        description: `${clientsToDelete.length} cliente(s) inativo(s) há mais de 1 ano foram removidos.`,
+                    });
+                })
+                .catch(error => {
+                    console.error("Erro ao deletar clientes inativos:", error);
+                });
+        }
+    }, [clientData, loading, toast]);
     
     const handleDeleteClient = async (clientId: string) => {
         if(window.confirm('Tem certeza que deseja deletar este cliente? Esta ação não pode ser desfeita.')) {
@@ -403,7 +430,3 @@ export default function ClientesPage() {
         </main>
     )
 }
-
-    
-
-    
