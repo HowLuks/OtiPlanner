@@ -16,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Funcionario, Role, Block, Appointment } from "@/lib/data";
+import { Funcionario, Role, Block, Appointment, Service } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
@@ -251,22 +251,24 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
               </div>
           </DialogContent>
         </Dialog>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => onDelete(funcionario.id)}>
-              <Trash className="text-xl" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Deletar funcionário</p>
-          </TooltipContent>
-        </Tooltip>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => onDelete(funcionario.id)}>
+                <Trash className="text-xl" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Deletar funcionário</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   )
 }
 
-function RoleManager({ roles, onAddRole, onUpdateRole }: { roles: Role[], onAddRole: (name: string) => void, onUpdateRole: (id: string, name: string) => void }) {
+function RoleManager({ roles, onAddRole, onUpdateRole, onDeleteRole }: { roles: Role[], onAddRole: (name: string) => void, onUpdateRole: (id: string, name: string) => void, onDeleteRole: (id: string) => void }) {
   const [newRoleName, setNewRoleName] = useState('');
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [editingRoleName, setEditingRoleName] = useState('');
@@ -316,16 +318,23 @@ function RoleManager({ roles, onAddRole, onUpdateRole }: { roles: Role[], onAddR
                   <span className="flex-1">{role.name}</span>
                 )}
                 
-                {editingRoleId === role.id ? (
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={handleUpdate}>Salvar</Button>
-                    <Button variant="ghost" size="sm" onClick={handleCancelEdit}>Cancelar</Button>
-                  </div>
-                ) : (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStartEdit(role)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                )}
+                <div className="flex gap-1">
+                  {editingRoleId === role.id ? (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={handleUpdate}>Salvar</Button>
+                      <Button variant="ghost" size="sm" onClick={handleCancelEdit}>Cancelar</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStartEdit(role)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => onDeleteRole(role.id)}>
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -345,6 +354,7 @@ function RoleManager({ roles, onAddRole, onUpdateRole }: { roles: Role[], onAddR
 
 export default function FuncionariosPage() {
   const { funcionarios, roles, loading, confirmedAppointments, services } = useData();
+  const { toast } = useToast();
 
   const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
@@ -394,6 +404,34 @@ export default function FuncionariosPage() {
         await setDoc(roleRef, { name: newName }, { merge: true });
     }
   };
+  
+    const handleDeleteRole = async (roleId: string) => {
+        const isRoleInUseByStaff = funcionarios.some(f => f.roleId === roleId);
+        const isRoleInUseByService = services.some(s => s.roleId === roleId);
+
+        if (isRoleInUseByStaff || isRoleInUseByService) {
+            let inUseMessage = "Esta função não pode ser excluída porque está sendo usada por";
+            if (isRoleInUseByStaff) inUseMessage += " funcionários";
+            if (isRoleInUseByStaff && isRoleInUseByService) inUseMessage += " e";
+            if (isRoleInUseByService) inUseMessage += " serviços";
+            inUseMessage += ".";
+            
+            toast({
+                variant: "destructive",
+                title: "Função em Uso",
+                description: inUseMessage,
+            });
+            return;
+        }
+
+        if (window.confirm("Tem certeza que deseja deletar esta função?")) {
+            await deleteDoc(doc(db, "roles", roleId));
+            toast({
+                title: "Sucesso!",
+                description: "Função deletada com sucesso.",
+            });
+        }
+    };
 
 
   const handleAddNewEmployee = async () => {
@@ -482,7 +520,7 @@ export default function FuncionariosPage() {
                   Gerenciar Funções
                 </Button>
               </DialogTrigger>
-              <RoleManager roles={roles} onAddRole={handleAddNewRole} onUpdateRole={handleUpdateRole} />
+              <RoleManager roles={roles} onAddRole={handleAddNewRole} onUpdateRole={handleUpdateRole} onDeleteRole={handleDeleteRole} />
             </Dialog>
             <Dialog>
               <DialogTrigger asChild>
