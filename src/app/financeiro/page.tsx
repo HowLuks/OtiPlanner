@@ -136,6 +136,15 @@ export default function FinanceiroPage() {
         }
     };
 
+    const { totalIncome, totalOutcome } = transactions.reduce((acc, transaction) => {
+        const value = parseFloat(transaction.value.replace('R$', '').replace('.', '').replace(',', '.'));
+        if (transaction.isIncome) {
+            acc.totalIncome += value;
+        } else {
+            acc.totalOutcome += value;
+        }
+        return acc;
+    }, { totalIncome: 0, totalOutcome: 0 });
 
     if (loading) {
         return (
@@ -176,23 +185,15 @@ export default function FinanceiroPage() {
                     </TransactionDialog>
                 </div>
                 <div className="mb-8">
-                    <h3 className="text-xl font-bold mb-4">Resumo Mensal</h3>
+                    <h3 className="text-xl font-bold mb-4">Resumo</h3>
                     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div className="flex flex-col gap-2 rounded-xl bg-card p-6">
                             <p className="text-muted-foreground">Entradas</p>
-                            <p className="text-3xl font-bold text-foreground">R$ 12.500,00</p>
-                            <p className="text-green-400 font-medium flex items-center gap-1">
-                                <span className="material-symbols-outlined text-base"> trending_up </span>
-                                <span>+15%</span>
-                            </p>
+                            <p className="text-3xl font-bold text-green-500">{totalIncome.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
                         <div className="flex flex-col gap-2 rounded-xl bg-card p-6">
                             <p className="text-muted-foreground">Saídas</p>
-                            <p className="text-3xl font-bold text-foreground">R$ 7.800,00</p>
-                            <p className="text-red-500 font-medium flex items-center gap-1">
-                                <span className="material-symbols-outlined text-base"> trending_down </span>
-                                <span>-8%</span>
-                            </p>
+                            <p className="text-3xl font-bold text-red-500">{totalOutcome.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
                     </div>
                 </div>
