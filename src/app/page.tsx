@@ -166,12 +166,16 @@ export default function Home() {
         
         let assignedStaffId: string | null = null;
         let staffToMoveToEnd: string | null = null;
+        const originalQueue = [...currentQueue]; // copy to not lose original order
+        let found = false;
 
-        for (const staffId of currentQueue) {
-            if (!isTimeBlocked(staffId, date, time, service.duration)) {
+
+        while(currentQueue.length > 0 && !found) {
+            const staffId = currentQueue.shift(); // take from front
+            if(staffId && !isTimeBlocked(staffId, date, time, service.duration)){
                 assignedStaffId = staffId;
                 staffToMoveToEnd = staffId;
-                break;
+                found = true;
             }
         }
         
@@ -188,11 +192,17 @@ export default function Home() {
             await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
             await updateStaffSales(assignedStaffId, service.id, 'add');
 
-            // Update queue
-            const newQueue = currentQueue.filter(id => id !== staffToMoveToEnd);
-            newQueue.push(staffToMoveToEnd);
+            // Update queue: move the assigned staff to the end of the original qualified queue
+            const finalQueue = originalQueue.filter(id => id !== staffToMoveToEnd);
+            finalQueue.push(staffToMoveToEnd);
+
+            const allStaffIds = funcionarios.map(f => f.id);
+            const nonQualifiedIds = allStaffIds.filter(id => !qualifiedStaffIds.includes(id));
+            const newGlobalQueue = [...finalQueue, ...nonQualifiedIds];
+
+
             const queueRef = doc(db, 'appState', 'staffQueue');
-            await updateDoc(queueRef, { staffIds: newQueue });
+            await updateDoc(queueRef, { staffIds: newGlobalQueue });
             
             const assignedStaffMember = funcionarios.find(f => f.id === assignedStaffId);
             toast({
@@ -202,8 +212,18 @@ export default function Home() {
             
             return true;
         } else {
-            setConflictError("Nenhum profissional qualificado está disponível neste horário.");
-            return false;
+            setConflictError("Nenhum profissional qualificado está disponível neste horário. O agendamento foi adicionado como pendente.");
+            // If no one is available, create a pending appointment as a fallback
+            const newId = `p${(pendingAppointments?.length || 0) + Date.now()}`;
+            const newPendingAppointment: PendingAppointment = {
+                id: newId,
+                date: appointmentDate,
+                client: clientName,
+                time: appointmentTime,
+                serviceId: selectedServiceId,
+            };
+            await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
+            return true;
         }
     };
 
@@ -221,61 +241,59 @@ export default function Home() {
       return;
     }
 
-    // Logic for when a staff member is manually selected in the form
-    if (selectedStaffId) {
-      const blockReason = isTimeBlocked(selectedStaffId, appointmentDate, appointmentTime, service.duration);
-      if (blockReason) {
-          setConflictError(blockReason);
-          return;
-      }
-      
-      const newId = `c${(confirmedAppointments?.length || 0) + Date.now()}`;
-      const newConfirmedAppointment: Appointment = {
-        id: newId,
-        date: appointmentDate,
-        client: clientName,
-        time: appointmentTime,
-        serviceId: selectedServiceId,
-        staffId: selectedStaffId,
-      };
-      await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
-      await updateStaffSales(selectedStaffId, selectedServiceId, 'add');
-      
-      resetForm();
-      document.getElementById('close-dialog-button')?.click();
-      return;
-    }
-    
-    // Logic for when NO staff member is selected
+    // Manual Selection Mode
     if (appSettings?.manualSelection) {
-        // Manual mode: create a pending appointment
-        const newId = `p${(pendingAppointments?.length || 0) + Date.now()}`;
-        const newPendingAppointment: PendingAppointment = {
-            id: newId,
-            date: appointmentDate,
-            client: clientName,
-            time: appointmentTime,
-            serviceId: selectedServiceId,
-        };
-        await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
-        resetForm();
-        document.getElementById('close-dialog-button')?.click();
-    } else {
-        // Automatic mode: find available staff and assign
+        if(appointmentStatus === 'pending') {
+            const newId = `p${(pendingAppointments?.length || 0) + Date.now()}`;
+            const newPendingAppointment: PendingAppointment = {
+                id: newId,
+                date: appointmentDate,
+                client: clientName,
+                time: appointmentTime,
+                serviceId: selectedServiceId,
+            };
+            await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
+        } else { // confirmed
+            if (!selectedStaffId) {
+                setConflictError('Por favor, selecione um profissional para confirmar o agendamento.');
+                return;
+            }
+            const blockReason = isTimeBlocked(selectedStaffId, appointmentDate, appointmentTime, service.duration);
+            if (blockReason) {
+                setConflictError(blockReason);
+                return;
+            }
+            const newId = `c${(confirmedAppointments?.length || 0) + Date.now()}`;
+            const newConfirmedAppointment: Appointment = {
+                id: newId,
+                date: appointmentDate,
+                client: clientName,
+                time: appointmentTime,
+                serviceId: selectedServiceId,
+                staffId: selectedStaffId,
+            };
+            await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
+            await updateStaffSales(selectedStaffId, selectedServiceId, 'add');
+        }
+    } 
+    // Automatic Assignment Mode
+    else {
         const success = await findAvailableStaffAndAssign(service, appointmentDate, appointmentTime);
         if (success) {
             resetForm();
             document.getElementById('close-dialog-button')?.click();
         }
+        return; // findAvailableStaffAndAssign handles its own closing/resetting
     }
+
+    resetForm();
+    document.getElementById('close-dialog-button')?.click();
   };
   
   useEffect(() => {
-    // When manual selection is enabled, default to pending status
     if (appSettings?.manualSelection) {
         setAppointmentStatus('pending');
     } else {
-        // When automatic, default to confirmed, as it will be auto-assigned
         setAppointmentStatus('confirmed');
     }
   }, [appSettings]);
@@ -347,39 +365,41 @@ export default function Home() {
                       </div>
                   
                   {appSettings?.manualSelection && (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="status" className="text-right">
-                        Status
-                      </Label>
-                      <RadioGroup value={appointmentStatus} className="col-span-3 flex gap-4" onValueChange={(value: 'confirmed' | 'pending') => setAppointmentStatus(value)}>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="pending" id="status-pending" />
-                          <Label htmlFor="status-pending">Pendente</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="confirmed" id="status-confirmed" />
-                          <Label htmlFor="status-confirmed">Confirmado</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                  )}
-
-                  {((appSettings?.manualSelection && appointmentStatus === 'confirmed') || !appSettings?.manualSelection) && (
+                    <>
                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="staff" className="text-right">
-                          Profissional
+                        <Label htmlFor="status" className="text-right">
+                          Status
                         </Label>
-                        <div className='col-span-3'>
-                          <Combobox
-                            options={staffOptions}
-                            value={selectedStaffId}
-                            onChange={setSelectedStaffId}
-                            placeholder={appSettings?.manualSelection ? "Selecione (opcional)" : "Selecione para agendar"}
-                            searchPlaceholder="Buscar profissional..."
-                            emptyText="Nenhum profissional qualificado."
-                            />
-                        </div>
+                        <RadioGroup value={appointmentStatus} className="col-span-3 flex gap-4" onValueChange={(value: 'confirmed' | 'pending') => setAppointmentStatus(value)}>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="pending" id="status-pending" />
+                            <Label htmlFor="status-pending">Pendente</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="confirmed" id="status-confirmed" />
+                            <Label htmlFor="status-confirmed">Confirmado</Label>
+                          </div>
+                        </RadioGroup>
                       </div>
+
+                      {appointmentStatus === 'confirmed' && (
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="staff" className="text-right">
+                            Profissional
+                          </Label>
+                          <div className='col-span-3'>
+                            <Combobox
+                              options={staffOptions}
+                              value={selectedStaffId}
+                              onChange={setSelectedStaffId}
+                              placeholder="Selecione um profissional"
+                              searchPlaceholder="Buscar profissional..."
+                              emptyText="Nenhum profissional qualificado."
+                              />
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                    {conflictError && (
@@ -429,3 +449,5 @@ export default function Home() {
 
     
 }
+
+    
