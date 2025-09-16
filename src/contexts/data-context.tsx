@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { collection, onSnapshot, doc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, DocumentData, QuerySnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
 import { Appointment, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings, StaffQueue } from '@/lib/data';
@@ -36,9 +36,7 @@ const DataContext = createContext<DataContextType>({
   loading: true,
 });
 
-export function DataProvider({ children }: { children: ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
-  const [data, setData] = useState<Omit<DataContextType, 'loading'>>({
+const initialState = {
     services: [],
     roles: [],
     funcionarios: [],
@@ -50,7 +48,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     appSettings: null,
     staffQueue: null,
     saldoEmCaixa: 0,
-  });
+}
+
+export function DataProvider({ children }: { children: ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
+  const [data, setData] = useState<Omit<DataContextType, 'loading'>>(initialState);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -61,70 +63,53 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     if (!user) {
       setLoading(false);
-      setData({
-        services: [],
-        roles: [],
-        funcionarios: [],
-        confirmedAppointments: [],
-        pendingAppointments: [],
-        transactions: [],
-        blocks: [],
-        workSchedules: [],
-        appSettings: null,
-        staffQueue: null,
-        saldoEmCaixa: 0,
-      });
+      setData(initialState);
       return;
     }
     
     setLoading(true);
 
-    const collections: { [key: string]: any } = {
-        services: collection(db, 'services'),
-        roles: collection(db, 'roles'),
-        funcionarios: collection(db, 'funcionarios'),
-        confirmedAppointments: collection(db, 'confirmedAppointments'),
-        pendingAppointments: collection(db, 'pendingAppointments'),
-        transactions: collection(db, 'transactions'),
-        blocks: collection(db, 'blocks'),
-        workSchedules: collection(db, 'workSchedules'),
-    };
+    const dataListeners = [
+      { key: 'services', ref: collection(db, 'services') },
+      { key: 'roles', ref: collection(db, 'roles') },
+      { key: 'funcionarios', ref: collection(db, 'funcionarios') },
+      { key: 'confirmedAppointments', ref: collection(db, 'confirmedAppointments') },
+      { key: 'pendingAppointments', ref: collection(db, 'pendingAppointments') },
+      { key: 'transactions', ref: collection(db, 'transactions') },
+      { key: 'blocks', ref: collection(db, 'blocks') },
+      { key: 'workSchedules', ref: collection(db, 'workSchedules') },
+      { key: 'appSettings', ref: doc(db, 'appState', 'settings'), isDoc: true },
+      { key: 'staffQueue', ref: doc(db, 'appState', 'staffQueue'), isDoc: true },
+      { key: 'saldoEmCaixa', ref: doc(db, 'appState', 'saldoEmCaixa'), isDoc: true },
+    ];
     
-    const singleDocs: { [key: string]: any } = {
-        saldoEmCaixa: doc(db, 'appState', 'saldoEmCaixa'),
-        appSettings: doc(db, 'appState', 'settings'),
-        staffQueue: doc(db, 'appState', 'staffQueue'),
-    };
-
-    const listenersToAttach = { ...collections, ...singleDocs };
-    const totalListeners = Object.keys(listenersToAttach).length;
     let loadedCount = 0;
     const initialLoadFlags: { [key: string]: boolean } = {};
-
+    const unsubscribes: (() => void)[] = [];
 
     const checkAllDataLoaded = () => {
         loadedCount++;
-        if (loadedCount >= totalListeners) {
+        if (loadedCount >= dataListeners.length) {
             setLoading(false);
         }
     };
     
-    const unsubscribes = Object.entries(listenersToAttach).map(([key, ref]) => 
-      onSnapshot(ref, (snapshot: any) => {
-        if (ref.type === 'document') { // Single Doc
-          const docData = snapshot.data();
-          let value;
-          if (docData) {
-            value = key === 'saldoEmCaixa' ? docData.value : { ...docData, id: snapshot.id };
-          } else {
-            value = key === 'saldoEmCaixa' ? 0 : null;
-          }
-          setData(prevData => ({ ...prevData, [key]: value }));
-        } else { // Collection
-            const items = snapshot.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }));
-            setData(prevData => ({ ...prevData, [key]: items }));
+    dataListeners.forEach(({ key, ref, isDoc }) => {
+      const unsub = onSnapshot(ref as any, (snapshot: DocumentData | QuerySnapshot) => {
+        let value: any;
+        if(isDoc) {
+           const docData = snapshot.data();
+            if (key === 'saldoEmCaixa') {
+                value = docData?.value || 0;
+            } else {
+                value = docData ? { ...docData, id: snapshot.id } : null;
+            }
+        } else {
+            value = snapshot.docs.map((doc: DocumentData) => ({ ...doc.data(), id: doc.id }));
         }
-        
+
+        setData(prevData => ({ ...prevData, [key]: value }));
+
         if (!initialLoadFlags[key]) {
           initialLoadFlags[key] = true;
           checkAllDataLoaded();
@@ -133,14 +118,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error(`Error fetching ${key}: `, error);
         if (!initialLoadFlags[key]) {
           initialLoadFlags[key] = true;
-          const defaultValue = ref.type === 'document' ? (key === 'saldoEmCaixa' ? 0 : null) : [];
+          const defaultValue = isDoc ? (key === 'saldoEmCaixa' ? 0 : null) : [];
           setData(prevData => ({ ...prevData, [key]: defaultValue }));
           checkAllDataLoaded();
         }
-      })
-    );
+      });
+      unsubscribes.push(unsub);
+    });
     
-    // Cleanup on unmount or when user changes
     return () => unsubscribes.forEach(unsub => unsub());
   }, [user, authLoading]);
 
@@ -152,3 +137,4 @@ export function DataProvider({ children }: { children: ReactNode }) {
 export function useData() {
   return useContext(DataContext);
 }
+

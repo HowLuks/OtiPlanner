@@ -7,18 +7,20 @@ import { CalendarView } from "@/components/calendar-view";
 import { ConfirmedAppointments } from "@/components/confirmed-appointments";
 import { PendingAppointments } from "@/components/pending-appointments";
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
-import { Service, Funcionario, Appointment, PendingAppointment, Block, WorkSchedule, StaffQueue } from '@/lib/data';
+import { Funcionario, Appointment, PendingAppointment } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db, seedDatabase } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
 import { useToast } from '@/hooks/use-toast';
+import { dayLabels } from '@/lib/constants';
+import { updateStaffSales } from '@/lib/actions';
 
 export default function Home() {
   const { 
@@ -33,6 +35,7 @@ export default function Home() {
     loading: dataLoading 
   } = useData();
 
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [clientName, setClientName] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
@@ -73,7 +76,7 @@ export default function Home() {
     setSelectedStaffId('');
     setAppointmentDate(format(selectedDate || new Date(), 'yyyy-MM-dd'));
     setAppointmentTime('');
-    setAppointmentStatus('pending');
+    setAppointmentStatus(appSettings?.manualSelection ? 'pending' : 'confirmed');
     setConflictError('');
   };
 
@@ -123,36 +126,10 @@ export default function Home() {
 
     return false;
   };
-  const dayLabels: { [key: string]: string } = {
-      segunda: 'Segunda',
-      terca: 'Terça',
-      quarta: 'Quarta',
-      quinta: 'Quinta',
-      sexta: 'Sexta',
-      sabado: 'Sábado',
-      domingo: 'Domingo',
-    };
-
-  const updateStaffSales = async (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
-    const service = services.find(s => s.id === serviceId);
-    const func = funcionarios.find(f => f.id === staffId);
-    if (!service || !func) return;
-
-    const newSalesValue = operation === 'add' 
-        ? func.salesValue + service.price 
-        : func.salesValue - service.price;
-    
-    const newSalesGoal = func.salesTarget > 0 
-        ? Math.round((newSalesValue / func.salesTarget) * 100)
-        : 0;
-
-    const updatedFunc = { ...func, salesValue: newSalesValue, salesGoal: newSalesGoal };
-    
-    const funcDocRef = doc(db, 'funcionarios', staffId);
-    await setDoc(funcDocRef, updatedFunc, { merge: true });
-  };
   
-    const findAvailableStaffAndAssign = async (service: Service, date: string, time: string): Promise<boolean> => {
+    const findAvailableStaffAndAssign = async (service: typeof selectedService, date: string, time: string): Promise<boolean> => {
+        if(!service) return false;
+
         const qualifiedStaff = funcionarios.filter(f => f.roleId === service.roleId);
         
         if (qualifiedStaff.length === 0) {
@@ -162,13 +139,15 @@ export default function Home() {
 
         const globalQueue = staffQueue?.staffIds || [];
 
-        // Build the potential staff list respecting the global queue order
+        // 1. Get staff from the queue that are qualified
         const staffInQueue = globalQueue
             .map(staffId => qualifiedStaff.find(s => s.id === staffId))
-            .filter((s): s is Funcionario => s !== undefined); // Filter out undefined if a staff in queue is not qualified
+            .filter((s): s is Funcionario => s !== undefined);
 
+        // 2. Get qualified staff that are not in the queue for some reason
         const staffNotInQueue = qualifiedStaff.filter(s => !globalQueue.includes(s.id));
-
+        
+        // 3. The final list to iterate over, respecting queue order
         const potentialStaff = [...staffInQueue, ...staffNotInQueue];
 
         if (potentialStaff.length === 0) {
@@ -186,6 +165,7 @@ export default function Home() {
         }
         
         if (assignedStaffId) {
+            const assignedStaffMember = funcionarios.find(f => f.id === assignedStaffId)!;
             const newId = `c${(confirmedAppointments?.length || 0) + Date.now()}`;
             const newConfirmedAppointment: Appointment = {
                 id: newId,
@@ -196,7 +176,7 @@ export default function Home() {
                 staffId: assignedStaffId,
             };
             await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
-            await updateStaffSales(assignedStaffId, service.id, 'add');
+            await updateStaffSales(assignedStaffMember, service, 'add');
 
             // Update queue: move the assigned staff to the end
             const newQueue = globalQueue.filter(id => id !== assignedStaffId);
@@ -205,7 +185,6 @@ export default function Home() {
             const queueRef = doc(db, 'appState', 'staffQueue');
             await setDoc(queueRef, { staffIds: newQueue }, { merge: true });
             
-            const assignedStaffMember = funcionarios.find(f => f.id === assignedStaffId);
             toast({
                 title: "Agendamento Automático!",
                 description: `Agendamento confirmado com ${assignedStaffMember?.name}.`,
@@ -236,11 +215,12 @@ export default function Home() {
     }
     setConflictError('');
 
-    const service = services.find(s => s.id === selectedServiceId);
-    if (!service) {
+    if (!selectedService) {
       alert('Serviço não encontrado.');
       return;
     }
+
+    let success = false;
 
     // Manual Selection Mode
     if (appSettings?.manualSelection) {
@@ -254,16 +234,18 @@ export default function Home() {
                 serviceId: selectedServiceId,
             };
             await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
+            success = true;
         } else { // confirmed
             if (!selectedStaffId) {
                 setConflictError('Por favor, selecione um profissional para confirmar o agendamento.');
                 return;
             }
-            const blockReason = isTimeBlocked(selectedStaffId, appointmentDate, appointmentTime, service.duration);
+            const blockReason = isTimeBlocked(selectedStaffId, appointmentDate, appointmentTime, selectedService.duration);
             if (blockReason) {
                 setConflictError(blockReason);
                 return;
             }
+            const staffMember = funcionarios.find(f => f.id === selectedStaffId)!;
             const newId = `c${(confirmedAppointments?.length || 0) + Date.now()}`;
             const newConfirmedAppointment: Appointment = {
                 id: newId,
@@ -274,28 +256,24 @@ export default function Home() {
                 staffId: selectedStaffId,
             };
             await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
-            await updateStaffSales(selectedStaffId, selectedServiceId, 'add');
+            await updateStaffSales(staffMember, selectedService, 'add');
+            success = true;
         }
     } 
     // Automatic Assignment Mode
     else {
-        const success = await findAvailableStaffAndAssign(service, appointmentDate, appointmentTime);
-        if (success) {
-            resetForm();
-            document.getElementById('close-dialog-button')?.click();
-        }
-        return; // findAvailableStaffAndAssign handles its own closing/resetting
+        success = await findAvailableStaffAndAssign(selectedService, appointmentDate, appointmentTime);
     }
 
-    resetForm();
-    document.getElementById('close-dialog-button')?.click();
+    if(success) {
+      resetForm();
+      setIsDialogOpen(false);
+    }
   };
   
   useEffect(() => {
-    if (appSettings?.manualSelection) {
-        setAppointmentStatus('pending');
-    } else {
-        setAppointmentStatus('confirmed');
+    if (appSettings) {
+        setAppointmentStatus(appSettings.manualSelection ? 'pending' : 'confirmed');
     }
   }, [appSettings]);
 
@@ -319,7 +297,7 @@ export default function Home() {
         <div className="flex-1 lg:w-[65%] xl:w-[70%]">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-3xl font-bold font-headline">Agendamentos</h2>
-             <Dialog onOpenChange={(isOpen) => { if (!isOpen) resetForm() }}>
+             <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { setIsDialogOpen(isOpen); if (!isOpen) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
@@ -422,9 +400,6 @@ export default function Home() {
                 </div>
                  <div className="flex justify-end pt-4">
                       <Button onClick={handleCreateAppointment}>Salvar Agendamento</Button>
-                      <DialogClose asChild>
-                        <Button id="close-dialog-button" variant="ghost" className="hidden">Close</Button>
-                      </DialogClose>
                   </div>
               </DialogContent>
             </Dialog>
@@ -458,8 +433,5 @@ export default function Home() {
       </main>
     </div>
   );
-
-    
 }
 
-    

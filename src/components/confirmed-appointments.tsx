@@ -16,8 +16,9 @@ import { Button } from "@/components/ui/button";
 import { Edit, Trash } from "lucide-react";
 import { Funcionario, Appointment, Service } from "@/lib/data";
 import { db } from "@/lib/firebase";
-import { doc, deleteDoc, setDoc } from "firebase/firestore";
+import { doc, deleteDoc } from "firebase/firestore";
 import { useData } from "@/contexts/data-context";
+import { updateStaffSales } from "@/lib/actions";
 
 
 interface ConfirmedAppointmentsProps {
@@ -52,29 +53,17 @@ export function ConfirmedAppointments({
       .sort((a, b) => a.time.localeCompare(b.time));
   }, [confirmedAppointments, selectedDate, isClient]);
 
-  const updateStaffSales = async (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
-    const service = services.find(s => s.id === serviceId);
-    const func = funcionarios.find(f => f.id === staffId);
-    if (!service || !func) return;
-
-    const newSalesValue = operation === 'add'
-      ? func.salesValue + service.price
-      : func.salesValue - service.price;
-
-    const newSalesGoal = func.salesTarget > 0
-      ? Math.round((newSalesValue / func.salesTarget) * 100)
-      : 0;
-
-    const updatedFunc = { ...func, salesValue: newSalesValue, salesGoal: newSalesGoal };
-
-    const funcDocRef = doc(db, 'funcionarios', staffId);
-    await setDoc(funcDocRef, updatedFunc, { merge: true });
-  };
-
   const handleDelete = async (appointmentToDelete: Appointment) => {
     if(window.confirm("Tem certeza que deseja excluir este agendamento?")){
-      await deleteDoc(doc(db, "confirmedAppointments", appointmentToDelete.id));
-      await updateStaffSales(appointmentToDelete.staffId, appointmentToDelete.serviceId, 'subtract');
+      const staffMember = getStaffMember(appointmentToDelete.staffId);
+      const service = getService(appointmentToDelete.serviceId);
+
+      if (staffMember && service) {
+        await deleteDoc(doc(db, "confirmedAppointments", appointmentToDelete.id));
+        await updateStaffSales(staffMember, service, 'subtract');
+      } else {
+        console.error("Não foi possível encontrar o funcionário ou serviço para atualizar as vendas.");
+      }
     }
   };
 
@@ -138,3 +127,4 @@ export function ConfirmedAppointments({
     </div>
   );
 }
+

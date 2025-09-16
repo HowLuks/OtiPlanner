@@ -11,19 +11,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { WorkSchedule, AppSettings } from '@/lib/data';
+import { WorkSchedule } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
-
-const daysOfWeek = ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'];
-const dayLabels: { [key: string]: string } = {
-  segunda: 'Segunda-feira',
-  terca: 'Terça-feira',
-  quarta: 'Quarta-feira',
-  quinta: 'Quinta-feira',
-  sexta: 'Sexta-feira',
-  sabado: 'Sábado',
-  domingo: 'Domingo',
-};
+import { daysOfWeek, dayLabels } from '@/lib/constants';
 
 
 export default function ConfiguracoesPage() {
@@ -207,3 +197,4 @@ export default function ConfiguracoesPage() {
         </main>
     );
 }
+

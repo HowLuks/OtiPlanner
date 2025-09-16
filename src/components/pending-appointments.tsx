@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
-import { format, getDay } from 'date-fns';
+import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 import { Clock, Check, X } from 'lucide-react';
 
@@ -12,10 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { useToast } from "@/hooks/use-toast";
 import { acceptRejectAppointment } from '@/ai/flows/accept-reject-appointments';
-import { PendingAppointment, Appointment, Service, Funcionario, Block, WorkSchedule } from '@/lib/data';
+import { PendingAppointment, Appointment } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
+import { updateStaffSales } from '@/lib/actions';
 
 
 function PendingAppointmentCard({ 
@@ -51,24 +52,6 @@ function PendingAppointmentCard({
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
-  const updateStaffSales = async (staffId: string, serviceId: string, operation: 'add' | 'subtract') => {
-    const service = services.find(s => s.id === serviceId);
-    const func = funcionarios.find(f => f.id === staffId);
-    if (!service || !func) return;
-
-    const newSalesValue = operation === 'add'
-      ? func.salesValue + service.price
-      : func.salesValue - service.price;
-
-    const newSalesGoal = func.salesTarget > 0
-      ? Math.round((newSalesValue / func.salesTarget) * 100)
-      : 0;
-
-    const updatedFunc = { ...func, salesValue: newSalesValue, salesGoal: newSalesGoal };
-
-    const funcDocRef = doc(db, 'funcionarios', staffId);
-    await setDoc(funcDocRef, updatedFunc, { merge: true });
-  };
   
   const handleConfirm = () => {
     if (!selectedStaffId) {
@@ -97,6 +80,9 @@ function PendingAppointmentCard({
         });
         
         if (result.success) {
+          const staffMember = funcionarios.find(f => f.id === selectedStaffId);
+          if (!staffMember) throw new Error("Funcionário selecionado não encontrado.");
+
           const newConfirmedAppointment: Appointment = {
             id: `c${Date.now()}`,
             date: appointment.date,
@@ -106,11 +92,10 @@ function PendingAppointmentCard({
             staffId: selectedStaffId,
           };
           
-          // Atomically move from pending to confirmed
           await setDoc(doc(db, 'confirmedAppointments', newConfirmedAppointment.id), newConfirmedAppointment);
           await deleteDoc(doc(db, 'pendingAppointments', appointment.id));
 
-          await updateStaffSales(selectedStaffId, appointment.serviceId, 'add');
+          await updateStaffSales(staffMember, service, 'add');
 
           setIsOpen(false);
           toast({
@@ -258,8 +243,19 @@ export function PendingAppointments({
 }) {
   const { pendingAppointments, appSettings } = useData();
 
-  if (!appSettings?.manualSelection) {
-    return null;
+  if (!appSettings?.manualSelection || pendingAppointments.length === 0) {
+    return (
+      <Card className="bg-card border-border h-fit">
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl font-bold">Agendamentos Pendentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-center py-8">
+            {appSettings?.manualSelection ? "Nenhum agendamento pendente." : "Seleção manual desativada."}
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -268,20 +264,17 @@ export function PendingAppointments({
         <CardTitle className="font-headline text-2xl font-bold">Agendamentos Pendentes</CardTitle>
       </CardHeader>
       <CardContent>
-        {pendingAppointments.length > 0 ? (
-          <div className="space-y-4">
-            {pendingAppointments.map((appointment) => (
-              <PendingAppointmentCard 
-                key={appointment.id} 
-                appointment={appointment} 
-                isTimeBlocked={isTimeBlocked}
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground text-center py-8">Nenhum agendamento pendente.</p>
-        )}
+        <div className="space-y-4">
+          {pendingAppointments.map((appointment) => (
+            <PendingAppointmentCard 
+              key={appointment.id} 
+              appointment={appointment} 
+              isTimeBlocked={isTimeBlocked}
+            />
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
 }
+
