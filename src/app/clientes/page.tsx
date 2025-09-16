@@ -26,11 +26,11 @@ function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
     const { toast } = useToast();
 
     const handleSave = async () => {
-        if (!name.trim()) {
+        if (!name.trim() || !whatsapp.trim()) {
             toast({
                 variant: "destructive",
                 title: "Erro de Validação",
-                description: "O nome do cliente é obrigatório.",
+                description: "O nome e o WhatsApp do cliente são obrigatórios.",
             });
             return;
         }
@@ -49,7 +49,8 @@ function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
         
         try {
             const newClientId = `client-${Date.now()}`;
-            const newClient: Omit<Client, 'id'> = {
+            const newClient: Client = {
+                id: newClientId,
                 name: name.trim(),
                 whatsapp: whatsapp.trim()
             };
@@ -91,7 +92,7 @@ function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="client-whatsapp">WhatsApp</Label>
-                        <Input id="client-whatsapp" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="(Opcional)" />
+                        <Input id="client-whatsapp" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="Número do WhatsApp" />
                     </div>
                 </div>
                 <div className="flex justify-end pt-2">
