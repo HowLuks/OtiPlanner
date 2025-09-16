@@ -25,6 +25,7 @@ import { useData } from '@/contexts/data-context';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface FuncionarioCardProps {
   funcionario: Funcionario;
@@ -250,9 +251,16 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
               </div>
           </DialogContent>
         </Dialog>
-        <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => onDelete(funcionario.id)}>
-          <Trash className="text-xl" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => onDelete(funcionario.id)}>
+              <Trash className="text-xl" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Deletar funcionário</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </div>
   )
@@ -375,7 +383,7 @@ export default function FuncionariosPage() {
   };
   
   return (
-    <>
+    <TooltipProvider>
       <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
           <div>
@@ -487,6 +495,6 @@ export default function FuncionariosPage() {
           ))}
         </div>
       </main>
-    </>
+    </TooltipProvider>
   );
 }
