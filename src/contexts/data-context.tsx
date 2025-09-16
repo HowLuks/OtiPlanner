@@ -17,7 +17,6 @@ interface DataContextType {
   workSchedules: WorkSchedule[];
   appSettings: AppSettings | null;
   staffQueue: StaffQueue | null;
-  saldoEmCaixa: number;
   loading: boolean;
 }
 
@@ -32,7 +31,6 @@ const DataContext = createContext<DataContextType>({
   workSchedules: [],
   appSettings: null,
   staffQueue: null,
-  saldoEmCaixa: 0,
   loading: true,
 });
 
@@ -47,7 +45,6 @@ const initialState = {
     workSchedules: [],
     appSettings: null,
     staffQueue: null,
-    saldoEmCaixa: 0,
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -80,7 +77,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       { key: 'workSchedules', ref: collection(db, 'workSchedules') },
       { key: 'appSettings', ref: doc(db, 'appState', 'settings'), isDoc: true },
       { key: 'staffQueue', ref: doc(db, 'appState', 'staffQueue'), isDoc: true },
-      { key: 'saldoEmCaixa', ref: doc(db, 'appState', 'saldoEmCaixa'), isDoc: true },
     ];
     
     let loadedCount = 0;
@@ -99,11 +95,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         let value: any;
         if(isDoc) {
            const docData = snapshot.data();
-            if (key === 'saldoEmCaixa') {
-                value = docData?.value || 0;
-            } else {
-                value = docData ? { ...docData, id: snapshot.id } : null;
-            }
+            value = docData ? { ...docData, id: snapshot.id } : null;
         } else {
             value = snapshot.docs.map((doc: DocumentData) => ({ ...doc.data(), id: doc.id }));
         }
@@ -118,7 +110,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error(`Error fetching ${key}: `, error);
         if (!initialLoadFlags[key]) {
           initialLoadFlags[key] = true;
-          const defaultValue = isDoc ? (key === 'saldoEmCaixa' ? 0 : null) : [];
+          const defaultValue = isDoc ? null : [];
           setData(prevData => ({ ...prevData, [key]: defaultValue }));
           checkAllDataLoaded();
         }
@@ -137,4 +129,3 @@ export function DataProvider({ children }: { children: ReactNode }) {
 export function useData() {
   return useContext(DataContext);
 }
-

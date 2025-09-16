@@ -10,12 +10,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useData } from "@/contexts/data-context";
 
 export default function DashboardPage() {
-    const { funcionarios, roles, saldoEmCaixa, loading } = useData();
+    const { funcionarios, roles, transactions, loading } = useData();
 
     const getRoleName = (roleId: string) => {
         if (!roles) return 'Carregando...';
         return roles.find(role => role.id === roleId)?.name || 'N/A';
     }
+
+    const saldoEmCaixa = transactions.reduce((acc, transaction) => {
+        const value = parseFloat(transaction.value.replace('R$', '').replace('.', '').replace(',', '.'));
+        if (transaction.isIncome) {
+            return acc + value;
+        } else {
+            return acc - value;
+        }
+    }, 0);
 
     if (loading) {
         return (
@@ -57,8 +66,8 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ {saldoEmCaixa.toLocaleString('pt-BR')}</div>
-            <p className="text-xs text-muted-foreground">+15% em relação ao mês passado</p>
+            <div className="text-2xl font-bold">{saldoEmCaixa.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+            <p className="text-xs text-muted-foreground">Balanço total de entradas e saídas</p>
           </CardContent>
         </Card>
         <Card>
