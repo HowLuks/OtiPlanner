@@ -252,8 +252,8 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
           </DialogContent>
         </Dialog>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive" onClick={() => onDelete(funcionario.id)}>
+          <TooltipTrigger asChild onClick={() => onDelete(funcionario.id)}>
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent hover:text-destructive">
               <Trash className="text-xl" />
             </Button>
           </TooltipTrigger>
