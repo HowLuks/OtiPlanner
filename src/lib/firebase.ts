@@ -60,8 +60,8 @@ export const seedDatabase = async () => {
             batch.set(docRef, app);
         });
 
-        initialTransactions.forEach((t, i) => {
-            const docRef = doc(db, 'transactions', `trans-${i}`);
+        initialTransactions.forEach((t) => {
+            const docRef = doc(db, 'transactions', t.id);
             batch.set(docRef, t);
         });
 

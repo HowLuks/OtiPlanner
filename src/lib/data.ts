@@ -138,6 +138,7 @@ export const initialPendingAppointments: PendingAppointment[] = [
 ];
 
 export type Transaction = {
+  id: string;
   date: string;
   description: string;
   type: 'Entrada' | 'Saída';
@@ -146,11 +147,11 @@ export type Transaction = {
 };
 
 export const initialTransactions: Transaction[] = [
-    { date: '01/08/2024', description: 'Serviços de beleza (semana)', type: 'Entrada', value: 'R$ 3.250,00', isIncome: true },
-    { date: '02/08/2024', description: 'Compra de esmaltes e produtos', type: 'Saída', value: 'R$ 800,00', isIncome: false },
-    { date: '03/08/2024', description: 'Pagamento conta de luz', type: 'Saída', value: 'R$ 450,00', isIncome: false },
-    { date: '05/08/2024', description: 'Serviço de massoterapia', type: 'Entrada', value: 'R$ 600,00', isIncome: true },
-    { date: '07/08/2024', description: 'Pagamento de salários', type: 'Saída', value: 'R$ 6.500,00', isIncome: false },
+    { id: 'trans-1', date: '2024-08-01', description: 'Serviços de beleza (semana)', type: 'Entrada', value: 'R$ 3.250,00', isIncome: true },
+    { id: 'trans-2', date: '2024-08-02', description: 'Compra de esmaltes e produtos', type: 'Saída', value: 'R$ 800,00', isIncome: false },
+    { id: 'trans-3', date: '2024-08-03', description: 'Pagamento conta de luz', type: 'Saída', value: 'R$ 450,00', isIncome: false },
+    { id: 'trans-4', date: '2024-08-05', description: 'Serviço de massoterapia', type: 'Entrada', value: 'R$ 600,00', isIncome: true },
+    { id: 'trans-5', date: '2024-08-07', description: 'Pagamento de salários', type: 'Saída', value: 'R$ 6.500,00', isIncome: false },
 ];
 
 export const initialSaldoEmCaixa = 23750;
