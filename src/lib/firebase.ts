@@ -1,8 +1,7 @@
 // src/lib/firebase.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { initialFuncionarios, initialRoles, initialServices, initialConfirmedAppointments, initialPendingAppointments, initialTransactions, initialSaldoEmCaixa, initialBlocks, initialWorkSchedules, initialAppSettings, initialStaffQueue } from './data';
 
 const firebaseConfig = {
     apiKey: "AIzaSyDA2qwwoF7GELvhp4UzGeceTajJJhauYJ8",
@@ -18,78 +17,5 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 const auth = getAuth(app);
-
-
-// Function to seed initial data
-export const seedDatabase = async () => {
-    try {
-        const batch = writeBatch(db);
-
-        // Simple check if data exists by checking one collection
-        const rolesCollection = collection(db, 'roles');
-        const rolesSnapshot = await getDocs(rolesCollection);
-        if (!rolesSnapshot.empty) {
-            // console.log('Firebase data already exists. Skipping seed.');
-            return;
-        }
-
-        console.log('Seeding database...');
-
-        initialRoles.forEach(role => {
-            const docRef = doc(db, 'roles', role.id);
-            batch.set(docRef, role);
-        });
-
-        initialFuncionarios.forEach(func => {
-            const docRef = doc(db, 'funcionarios', func.id);
-            batch.set(docRef, func);
-        });
-
-        initialServices.forEach(service => {
-            const docRef = doc(db, 'services', service.id);
-            batch.set(docRef, service);
-        });
-
-        initialConfirmedAppointments.forEach(app => {
-            const docRef = doc(db, 'confirmedAppointments', app.id);
-            batch.set(docRef, app);
-        });
-        
-        initialPendingAppointments.forEach(app => {
-            const docRef = doc(db, 'pendingAppointments', app.id);
-            batch.set(docRef, app);
-        });
-
-        initialTransactions.forEach((t) => {
-            const docRef = doc(db, 'transactions', t.id);
-            batch.set(docRef, t);
-        });
-
-        initialBlocks.forEach(block => {
-            const docRef = doc(db, 'blocks', block.id);
-            batch.set(docRef, block);
-        });
-
-        initialWorkSchedules.forEach(ws => {
-            const docRef = doc(db, 'workSchedules', ws.id);
-            batch.set(docRef, ws);
-        });
-
-        const settingsRef = doc(db, 'appState', 'settings');
-        batch.set(settingsRef, initialAppSettings);
-
-        const staffQueueRef = doc(db, 'appState', 'staffQueue');
-        batch.set(staffQueueRef, initialStaffQueue);
-
-        const saldoRef = doc(db, 'appState', 'saldoEmCaixa');
-        batch.set(saldoRef, { value: initialSaldoEmCaixa });
-
-        await batch.commit();
-        console.log('Database seeded successfully!');
-    } catch (error) {
-        console.error('Error seeding database: ', error);
-    }
-};
-
 
 export { db, auth };

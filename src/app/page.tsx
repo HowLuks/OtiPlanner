@@ -15,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
 import { Funcionario, Appointment, PendingAppointment } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { db, seedDatabase } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
 import { useToast } from '@/hooks/use-toast';
@@ -46,10 +46,6 @@ export default function Home() {
   const [conflictError, setConflictError] = useState('');
   const { toast } = useToast();
   
-  useEffect(() => {
-    // Seed the database if necessary
-    seedDatabase();
-  }, []);
 
   const selectedService = useMemo(() => {
       return services.find(s => s.id === selectedServiceId)
@@ -434,4 +430,3 @@ export default function Home() {
     </div>
   );
 }
-
