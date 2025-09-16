@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { collection, onSnapshot, doc, DocumentData, QuerySnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
-import { Appointment, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings, StaffQueue } from '@/lib/data';
+import { Appointment, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings, StaffQueue, Client } from '@/lib/data';
 
 interface DataContextType {
   services: Service[];
@@ -17,6 +17,7 @@ interface DataContextType {
   workSchedules: WorkSchedule[];
   appSettings: AppSettings | null;
   staffQueue: StaffQueue | null;
+  clients: Client[];
   loading: boolean;
 }
 
@@ -31,6 +32,7 @@ const DataContext = createContext<DataContextType>({
   workSchedules: [],
   appSettings: null,
   staffQueue: null,
+  clients: [],
   loading: true,
 });
 
@@ -45,6 +47,7 @@ const initialState = {
     workSchedules: [],
     appSettings: null,
     staffQueue: null,
+    clients: [],
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -75,6 +78,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       { key: 'transactions', ref: collection(db, 'transactions') },
       { key: 'blocks', ref: collection(db, 'blocks') },
       { key: 'workSchedules', ref: collection(db, 'workSchedules') },
+      { key: 'clients', ref: collection(db, 'clients') },
       { key: 'appSettings', ref: doc(db, 'appState', 'settings'), isDoc: true },
       { key: 'staffQueue', ref: doc(db, 'appState', 'staffQueue'), isDoc: true },
     ];

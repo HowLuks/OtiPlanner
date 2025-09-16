@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { useToast } from "@/hooks/use-toast";
 import { acceptRejectAppointment } from '@/ai/flows/accept-reject-appointments';
-import { PendingAppointment, Appointment } from '@/lib/data';
+import { PendingAppointment, Appointment, Client } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
@@ -26,7 +26,7 @@ function PendingAppointmentCard({
   appointment: PendingAppointment;
   isTimeBlocked: (staffId: string, date: string, time: string, serviceDuration: number) => string | false;
 }) {
-  const { services, funcionarios, saldoEmCaixa } = useData();
+  const { services, funcionarios, saldoEmCaixa, clients } = useData();
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
@@ -51,6 +51,28 @@ function PendingAppointmentCard({
   }, [funcionarios, service]);
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
+
+  const handleClientUpsert = async (name: string, whatsapp: string | undefined) => {
+    if (!whatsapp) return;
+    const normalizedName = name.trim().toLowerCase();
+    const existingClient = clients.find(c => c.name.toLowerCase() === normalizedName);
+
+    if (existingClient) {
+        if (whatsapp && existingClient.whatsapp !== whatsapp) {
+            const clientRef = doc(db, 'clients', existingClient.id);
+            await setDoc(clientRef, { whatsapp: whatsapp }, { merge: true });
+        }
+    } else {
+        const newClientId = `client-${Date.now()}`;
+        const newClient: Client = {
+            id: newClientId,
+            name: name.trim(),
+            whatsapp: whatsapp
+        };
+        const clientRef = doc(db, 'clients', newClientId);
+        await setDoc(clientRef, newClient);
+    }
+  };
 
   
   const handleConfirm = () => {
@@ -87,6 +109,7 @@ function PendingAppointmentCard({
             id: `c${Date.now()}`,
             date: appointment.date,
             client: appointment.client,
+            clientWhatsapp: appointment.clientWhatsapp,
             time: appointment.time,
             serviceId: appointment.serviceId,
             staffId: selectedStaffId,
@@ -94,7 +117,7 @@ function PendingAppointmentCard({
           
           await setDoc(doc(db, 'confirmedAppointments', newConfirmedAppointment.id), newConfirmedAppointment);
           await deleteDoc(doc(db, 'pendingAppointments', appointment.id));
-
+          await handleClientUpsert(appointment.client, appointment.clientWhatsapp);
           await updateStaffSales(staffMember, service, 'add');
           await createTransactionForAppointment(newConfirmedAppointment, service, staffMember, saldoEmCaixa);
 

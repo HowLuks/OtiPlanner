@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
-import { Funcionario, Appointment, PendingAppointment, Service } from '@/lib/data';
+import { Funcionario, Appointment, PendingAppointment, Service, Client } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -33,12 +33,14 @@ export default function Home() {
     appSettings,
     staffQueue,
     saldoEmCaixa,
+    clients,
     loading: dataLoading 
   } = useData();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [clientName, setClientName] = useState('');
+  const [clientWhatsapp, setClientWhatsapp] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [appointmentDate, setAppointmentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -69,6 +71,7 @@ export default function Home() {
 
   const resetForm = () => {
     setClientName('');
+    setClientWhatsapp('');
     setSelectedServiceId('');
     setSelectedStaffId('');
     setAppointmentDate(format(selectedDate || new Date(), 'yyyy-MM-dd'));
@@ -123,6 +126,27 @@ export default function Home() {
 
     return false;
   };
+
+  const handleClientUpsert = async (name: string, whatsapp: string) => {
+    const normalizedName = name.trim().toLowerCase();
+    const existingClient = clients.find(c => c.name.toLowerCase() === normalizedName);
+
+    if (existingClient) {
+        if (whatsapp && existingClient.whatsapp !== whatsapp) {
+            const clientRef = doc(db, 'clients', existingClient.id);
+            await setDoc(clientRef, { whatsapp: whatsapp }, { merge: true });
+        }
+    } else {
+        const newClientId = `client-${Date.now()}`;
+        const newClient: Client = {
+            id: newClientId,
+            name: name.trim(),
+            whatsapp: whatsapp
+        };
+        const clientRef = doc(db, 'clients', newClientId);
+        await setDoc(clientRef, newClient);
+    }
+  };
   
     const findAvailableStaffAndAssign = async (service: Service, date: string, time: string): Promise<boolean> => {
         if(!service) return false;
@@ -168,11 +192,13 @@ export default function Home() {
                 id: newId,
                 date: date,
                 client: clientName,
+                clientWhatsapp: clientWhatsapp,
                 time: time,
                 serviceId: service.id,
                 staffId: assignedStaffId,
             };
             await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
+            await handleClientUpsert(clientName, clientWhatsapp);
             await updateStaffSales(assignedStaffMember, service, 'add');
             await createTransactionForAppointment(newConfirmedAppointment, service, assignedStaffMember, saldoEmCaixa);
 
@@ -198,10 +224,12 @@ export default function Home() {
                 id: newId,
                 date: appointmentDate,
                 client: clientName,
+                clientWhatsapp: clientWhatsapp,
                 time: appointmentTime,
                 serviceId: selectedServiceId,
             };
             await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
+            await handleClientUpsert(clientName, clientWhatsapp);
             return true;
         }
     };
@@ -229,10 +257,12 @@ export default function Home() {
                 id: newId,
                 date: appointmentDate,
                 client: clientName,
+                clientWhatsapp: clientWhatsapp,
                 time: appointmentTime,
                 serviceId: selectedServiceId,
             };
             await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
+            await handleClientUpsert(clientName, clientWhatsapp);
             success = true;
         } else { // confirmed
             if (!selectedStaffId) {
@@ -250,11 +280,13 @@ export default function Home() {
                 id: newId,
                 date: appointmentDate,
                 client: clientName,
+                clientWhatsapp: clientWhatsapp,
                 time: appointmentTime,
                 serviceId: selectedServiceId,
                 staffId: selectedStaffId,
             };
             await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
+            await handleClientUpsert(clientName, clientWhatsapp);
             await updateStaffSales(staffMember, selectedService, 'add');
             await createTransactionForAppointment(newConfirmedAppointment, selectedService, staffMember, saldoEmCaixa);
             success = true;
@@ -314,6 +346,12 @@ export default function Home() {
                       Cliente
                     </Label>
                     <Input id="client-name" value={clientName} onChange={e => setClientName(e.target.value)} className="col-span-3" placeholder="Nome do cliente" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="client-whatsapp" className="text-right">
+                      WhatsApp
+                    </Label>
+                    <Input id="client-whatsapp" value={clientWhatsapp} onChange={e => setClientWhatsapp(e.target.value)} className="col-span-3" placeholder="(Opcional)" />
                   </div>
                    <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="appointment-date" className="text-right">

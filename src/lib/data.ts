@@ -1,8 +1,3 @@
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-
-const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id)?.imageUrl || '';
-const findImageHint = (id: string) => PlaceHolderImages.find(img => img.id === id)?.imageHint || '';
-
 export type Role = {
   id: string;
   name: string;
@@ -20,15 +15,18 @@ export type Funcionario = {
 };
 export type Staff = Funcionario;
 
-export const initialRoles: Role[] = [];
-export const initialFuncionarios: Funcionario[] = [];
-
+export type Client = {
+    id: string;
+    name: string;
+    whatsapp: string;
+};
 
 export type Appointment = {
   id: string;
   date: string; // YYYY-MM-DD
   time: string;
   client: string;
+  clientWhatsapp?: string;
   serviceId: string;
   staffId: string;
 };
@@ -40,6 +38,7 @@ export type PendingAppointment = {
   date: string;
   time: string;
   client: string;
+  clientWhatsapp?: string;
   serviceId: string;
 }
 

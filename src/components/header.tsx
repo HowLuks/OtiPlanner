@@ -11,7 +11,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "@/components/icons";
 import { usePathname } from "next/navigation";
 import { auth } from "@/lib/firebase";
@@ -20,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/clientes", label: "Clientes" },
   { href: "/servicos", label: "Serviços" },
   { href: "/funcionarios", label: "Funcionários" },
   { href: "/", label: "Agendamentos" },

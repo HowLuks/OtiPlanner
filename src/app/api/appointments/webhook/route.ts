@@ -17,6 +17,7 @@ const globalStore: SimpleStore = {
 // Zod schema for input validation
 const appointmentSchema = z.object({
   client: z.string().min(1, { message: "Client name is required." }),
+  clientWhatsapp: z.string().optional(),
   time: z.string().regex(/^\d{2}:\d{2}$/, { message: "Time must be in HH:MM format." }),
   service: z.string().min(1, { message: "Service is required." }),
 });
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: validation.error.flatten() }, { status: 400 });
     }
 
-    const { client, time, service } = validation.data;
+    const { client, clientWhatsapp, time, service } = validation.data;
 
     const serviceObject = initialServices.find(s => s.name.toLowerCase() === service.toLowerCase());
 
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
     const newAppointment = {
         id: `p${globalStore.pendingAppointments.length + Date.now()}`,
         client,
+        clientWhatsapp,
         time,
         service: serviceObject,
     };
