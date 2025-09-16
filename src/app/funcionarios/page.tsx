@@ -340,7 +340,9 @@ export default function FuncionariosPage() {
   };
 
   const handleDeleteEmployee = async (id: string) => {
-    await deleteDoc(doc(db, "funcionarios", id));
+    if (window.confirm("Tem certeza que deseja deletar este funcionário?")) {
+      await deleteDoc(doc(db, "funcionarios", id));
+    }
   };
   
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, setPhoto: (url: string) => void) => {
