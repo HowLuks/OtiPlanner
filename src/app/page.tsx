@@ -16,7 +16,7 @@ import { Plus } from 'lucide-react';
 import { Service, Funcionario, Appointment, PendingAppointment, Block, WorkSchedule, StaffQueue } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db, seedDatabase } from '@/lib/firebase';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
 import { useToast } from '@/hooks/use-toast';
 
@@ -153,33 +153,37 @@ export default function Home() {
   };
   
     const findAvailableStaffAndAssign = async (service: Service, date: string, time: string): Promise<boolean> => {
-        const qualifiedStaffIds = funcionarios
-            .filter(f => f.roleId === service.roleId)
-            .map(f => f.id);
+        const qualifiedStaff = funcionarios.filter(f => f.roleId === service.roleId);
             
-        if (qualifiedStaffIds.length === 0) {
+        if (qualifiedStaff.length === 0) {
             setConflictError("Não há funcionários qualificados para este serviço.");
             return false;
         }
 
-        const queue = staffQueue ? staffQueue.staffIds : [];
+        const globalQueue = staffQueue ? staffQueue.staffIds : [];
         
-        // Order qualified staff by their position in the queue
-        const potentialStaff = qualifiedStaffIds
-            .map(id => ({ id, index: queue.indexOf(id) }))
+        // Order qualified staff by their position in the global queue
+        const potentialStaff = qualifiedStaff
+            .map(staff => ({ staff, index: globalQueue.indexOf(staff.id) }))
             .sort((a, b) => {
-                if (a.index === -1) return 1; // move to end if not in queue
-                if (b.index === -1) return -1;
+                if (a.index === -1 && b.index === -1) return 0; // both not in queue
+                if (a.index === -1) return 1; // a is not in queue, move to end
+                if (b.index === -1) return -1; // b is not in queue, move to end
                 return a.index - b.index;
             })
-            .map(item => item.id);
+            .map(item => item.staff);
 
+
+        if (potentialStaff.length === 0) {
+            setConflictError("Não há funcionários na fila de atribuição.");
+            return false;
+        }
 
         let assignedStaffId: string | null = null;
         
-        for(const staffId of potentialStaff) {
-            if(!isTimeBlocked(staffId, date, time, service.duration)){
-                assignedStaffId = staffId;
+        for(const staff of potentialStaff) {
+            if(!isTimeBlocked(staff.id, date, time, service.duration)){
+                assignedStaffId = staff.id;
                 break;
             }
         }
@@ -198,11 +202,11 @@ export default function Home() {
             await updateStaffSales(assignedStaffId, service.id, 'add');
 
             // Update queue: move the assigned staff to the end
-            const newQueue = queue.filter(id => id !== assignedStaffId);
+            const newQueue = globalQueue.filter(id => id !== assignedStaffId);
             newQueue.push(assignedStaffId);
 
             const queueRef = doc(db, 'appState', 'staffQueue');
-            await updateDoc(queueRef, { staffIds: newQueue });
+            await setDoc(queueRef, { staffIds: newQueue }, { merge: true });
             
             const assignedStaffMember = funcionarios.find(f => f.id === assignedStaffId);
             toast({
