@@ -4,6 +4,8 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from "@/contexts/data-context";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 
 export default function FinanceiroPage() {
@@ -66,33 +68,35 @@ export default function FinanceiroPage() {
                         </div>
                     </div>
                 </div>
-                <div className="mb-8">
-                    <h3 className="text-xl font-bold mb-4">Transações</h3>
-                    <div className="overflow-x-auto rounded-xl border border-border bg-card">
-                        <table className="min-w-full divide-y divide-border">
-                            <thead className="bg-secondary/30">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">Data</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">Descrição</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">Tipo</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground" scope="col">Valor</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Transações Recentes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Data</TableHead>
+                                    <TableHead>Descrição</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead className="text-right">Valor</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
                                 {transactions.map((transaction, index) => (
-                                    <tr key={index}>
-                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">{transaction.date}</td>
-                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-muted-foreground">{transaction.description}</td>
-                                        <td className="whitespace-nowrap px-6 py-4 text-sm">
+                                    <TableRow key={index}>
+                                        <TableCell className="font-medium text-muted-foreground">{transaction.date}</TableCell>
+                                        <TableCell className="text-muted-foreground">{transaction.description}</TableCell>
+                                        <TableCell>
                                             <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${transaction.isIncome ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>{transaction.type}</span>
-                                        </td>
-                                        <td className={`whitespace-nowrap px-6 py-4 text-right text-sm font-medium ${transaction.isIncome ? 'text-green-500' : 'text-red-500'}`}>{transaction.value}</td>
-                                    </tr>
+                                        </TableCell>
+                                        <TableCell className={`text-right font-medium ${transaction.isIncome ? 'text-green-500' : 'text-red-500'}`}>{transaction.value}</TableCell>
+                                    </TableRow>
                                 ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
             </div>
         </main>
     );
