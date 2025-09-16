@@ -405,6 +405,17 @@ export default function Home() {
                       )}
                     </>
                   )}
+                  
+                  {!appSettings?.manualSelection && appointmentStatus === 'confirmed' && !selectedStaffId && (
+                     <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="staff" className="text-right">
+                            Profissional
+                          </Label>
+                          <div className='col-span-3'>
+                            <Input id="staff" disabled value="Atribuído automaticamente" />
+                          </div>
+                        </div>
+                  )}
 
                    {conflictError && (
                     <div className="col-span-4 text-sm text-red-500 text-center p-2 bg-red-500/10 rounded-md">
