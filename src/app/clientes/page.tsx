@@ -7,10 +7,100 @@ import { Client, Appointment, Service } from "@/lib/data";
 import { subDays, isAfter } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { User, Phone, Calendar as CalendarIcon, History } from "lucide-react";
+import { User, Phone, Calendar as CalendarIcon, History, Plus } from "lucide-react";
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
+
+
+function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [name, setName] = useState('');
+    const [whatsapp, setWhatsapp] = useState('');
+    const { clients } = useData();
+    const { toast } = useToast();
+
+    const handleSave = async () => {
+        if (!name.trim()) {
+            toast({
+                variant: "destructive",
+                title: "Erro de Validação",
+                description: "O nome do cliente é obrigatório.",
+            });
+            return;
+        }
+
+        const normalizedName = name.trim().toLowerCase();
+        const existingClient = clients.find(c => c.name.toLowerCase() === normalizedName);
+
+        if (existingClient) {
+            toast({
+                variant: "destructive",
+                title: "Cliente Duplicado",
+                description: "Um cliente com este nome já existe.",
+            });
+            return;
+        }
+        
+        try {
+            const newClientId = `client-${Date.now()}`;
+            const newClient: Omit<Client, 'id'> = {
+                name: name.trim(),
+                whatsapp: whatsapp.trim()
+            };
+            await setDoc(doc(db, 'clients', newClientId), newClient);
+            toast({
+                title: "Sucesso!",
+                description: "Novo cliente adicionado.",
+            });
+            onClientAdded();
+            setIsOpen(false);
+            setName('');
+            setWhatsapp('');
+        } catch (error) {
+            console.error("Erro ao adicionar cliente:", error);
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Não foi possível adicionar o cliente.",
+            });
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo Cliente
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Adicionar Novo Cliente</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="client-name">Nome do Cliente</Label>
+                        <Input id="client-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="client-whatsapp">WhatsApp</Label>
+                        <Input id="client-whatsapp" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="(Opcional)" />
+                    </div>
+                </div>
+                <div className="flex justify-end pt-2">
+                    <Button onClick={handleSave}>Salvar Cliente</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 
 function ClientHistoryDialog({ client, appointments, services }: { client: Client, appointments: Appointment[], services: Service[] }) {
@@ -126,7 +216,10 @@ export default function ClientesPage() {
     if (loading) {
         return (
             <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
-                <Skeleton className="h-9 w-48 mb-8" />
+                 <div className="flex items-center justify-between mb-8">
+                    <Skeleton className="h-9 w-48" />
+                    <Skeleton className="h-10 w-36" />
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     <Skeleton className="h-56" />
                     <Skeleton className="h-56" />
@@ -141,7 +234,10 @@ export default function ClientesPage() {
 
     return (
         <main className="flex-1 container mx-auto p-4 sm:p-6 lg:p-8">
-            <h1 className="text-3xl font-bold tracking-tight mb-8">Clientes</h1>
+            <div className="flex items-center justify-between mb-8">
+                <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
+                <AddClientDialog onClientAdded={() => {}} />
+            </div>
             
             {clientData.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -160,7 +256,7 @@ export default function ClientesPage() {
                     <CardContent className="flex flex-col items-center justify-center h-64">
                         <User className="h-16 w-16 text-muted-foreground mb-4" />
                         <h3 className="text-xl font-semibold">Nenhum cliente encontrado</h3>
-                        <p className="text-muted-foreground">Comece a adicionar agendamentos para construir sua lista de clientes.</p>
+                        <p className="text-muted-foreground">Comece a adicionar agendamentos ou cadastre um novo cliente.</p>
                     </CardContent>
                 </Card>
             )}
