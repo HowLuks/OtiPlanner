@@ -16,11 +16,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Funcionario, Role, Block, Appointment, Service } from "@/lib/data";
+import { Funcionario, Role, Block } from "@/lib/data";
 import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { db } from '@/lib/firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -31,10 +29,10 @@ interface FuncionarioCardProps {
   funcionario: Funcionario;
   roleName: string;
   roleOptions: { label: string; value: string }[];
-  onUpdate: (updatedFuncionario: Funcionario) => void;
-  onDelete: (id: string) => void;
+  onUpdate: (updatedFuncionario: Funcionario) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   onPhotoUpload: (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => void;
-  onAddBlock: (block: Block) => Promise<boolean>;
+  onAddBlock: (block: Block) => Promise<void>;
 }
 
 function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelete, onPhotoUpload, onAddBlock }: FuncionarioCardProps) {
@@ -59,25 +57,25 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
     setIsOpen(true);
   };
 
-  const handleUpdateEmployee = () => {
+  const handleUpdateEmployee = async () => {
     const updatedFuncionario = {
       ...funcionario,
       name: editEmployeeName.trim(),
       roleId: editEmployeeRoleId,
       avatarUrl: editEmployeePhoto || funcionario.avatarUrl,
     };
-    onUpdate(updatedFuncionario);
+    await onUpdate(updatedFuncionario);
     setIsOpen(false);
   };
   
-  const handleUpdateSalesTarget = () => {
+  const handleUpdateSalesTarget = async () => {
     const newSalesTarget = Number(editSalesTarget) || 0;
     const updatedFuncionario = {
         ...funcionario,
         salesTarget: newSalesTarget,
         salesGoal: newSalesTarget > 0 ? Math.round((funcionario.salesValue / newSalesTarget) * 100) : 0,
     };
-    onUpdate(updatedFuncionario);
+    await onUpdate(updatedFuncionario);
     setIsOpen(false);
   };
 
@@ -96,16 +94,16 @@ function FuncionarioCard({ funcionario, roleName, roleOptions, onUpdate, onDelet
       endTime: blockEndTime,
     };
 
-    const success = await onAddBlock(newBlock);
-    if (success) {
-      toast({
-        title: "Sucesso!",
-        description: "Bloqueio criado com sucesso.",
-      });
-      setIsBlockOpen(false);
-      resetBlockForm();
-    } else {
-      setBlockError("Conflito detectado. O funcionário já tem um agendamento neste horário.");
+    try {
+        await onAddBlock(newBlock);
+        toast({
+            title: "Sucesso!",
+            description: "Bloqueio criado com sucesso.",
+        });
+        setIsBlockOpen(false);
+        resetBlockForm();
+    } catch (error) {
+        setBlockError(error instanceof Error ? error.message : "Erro desconhecido ao criar bloqueio.");
     }
   };
 
@@ -353,13 +351,26 @@ function RoleManager({ roles, onAddRole, onUpdateRole, onDeleteRole }: { roles: 
 
 
 export default function FuncionariosPage() {
-  const { funcionarios, roles, loading, confirmedAppointments, services } = useData();
+  const { funcionarios, roles, loading } = useData();
   const { toast } = useToast();
 
   const [newEmployeeRoleId, setNewEmployeeRoleId] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeePhoto, setNewEmployeePhoto] = useState<string | null>(null);
   const [newEmployeeSalesTarget, setNewEmployeeSalesTarget] = useState<number | ''>(2000);
+
+  const apiCall = async (endpoint: string, method: string, body?: any) => {
+      const response = await fetch(endpoint, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined
+      });
+      if (!response.ok) {
+          const { error } = await response.json();
+          throw new Error(error || 'Falha na requisição');
+      }
+      return response.json();
+  }
 
   if (loading) {
       return (
@@ -388,55 +399,32 @@ export default function FuncionariosPage() {
   }
 
   const handleAddNewRole = async (newRoleName: string) => {
-    if (newRoleName && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
-        const newRoleId = `role-${roles.length + 1 + Date.now()}`;
-        const newRole: Role = {
-            id: newRoleId,
-            name: newRoleName,
-        };
-      await setDoc(doc(db, 'roles', newRoleId), newRole);
-    }
+      if (newRoleName && !roles.find(r => r.name.toLowerCase() === newRoleName.toLowerCase())) {
+          await apiCall('/api/staff', 'POST', { type: 'role', payload: { name: newRoleName } });
+      }
   };
 
   const handleUpdateRole = async (roleId: string, newName: string) => {
     if (newName && !roles.find(r => r.name.toLowerCase() === newName.toLowerCase() && r.id !== roleId)) {
-        const roleRef = doc(db, 'roles', roleId);
-        await setDoc(roleRef, { name: newName }, { merge: true });
+        await apiCall('/api/staff', 'POST', { type: 'role', payload: { id: roleId, name: newName } });
     }
   };
   
     const handleDeleteRole = async (roleId: string) => {
-        const isRoleInUseByStaff = funcionarios.some(f => f.roleId === roleId);
-        const isRoleInUseByService = services.some(s => s.roleId === roleId);
-
-        if (isRoleInUseByStaff || isRoleInUseByService) {
-            let inUseMessage = "Esta função não pode ser excluída porque está sendo usada por";
-            if (isRoleInUseByStaff) inUseMessage += " funcionários";
-            if (isRoleInUseByStaff && isRoleInUseByService) inUseMessage += " e";
-            if (isRoleInUseByService) inUseMessage += " serviços";
-            inUseMessage += ".";
-            
-            toast({
-                variant: "destructive",
-                title: "Função em Uso",
-                description: inUseMessage,
-            });
-            return;
-        }
-
         if (window.confirm("Tem certeza que deseja deletar esta função?")) {
-            await deleteDoc(doc(db, "roles", roleId));
-            toast({
-                title: "Sucesso!",
-                description: "Função deletada com sucesso.",
-            });
+            try {
+                await apiCall(`/api/staff?type=role&id=${roleId}`, 'DELETE');
+                toast({ title: "Sucesso!", description: "Função deletada com sucesso." });
+            } catch (error) {
+                toast({ variant: "destructive", title: "Função em Uso", description: error instanceof Error ? error.message : "Erro desconhecido" });
+            }
         }
     };
 
 
   const handleAddNewEmployee = async () => {
     if (newEmployeeName.trim() && newEmployeeRoleId && funcionarios) {
-      const newEmployeeId = `func-${funcionarios.length + 1 + Date.now()}`;
+      const newEmployeeId = `func-${Date.now()}`;
       const newEmployee: Funcionario = {
         id: newEmployeeId,
         name: newEmployeeName.trim(),
@@ -447,7 +435,7 @@ export default function FuncionariosPage() {
         salesValue: 0,
         salesTarget: Number(newEmployeeSalesTarget) || 2000,
       };
-      await setDoc(doc(db, 'funcionarios', newEmployeeId), newEmployee);
+      await apiCall('/api/staff', 'POST', { type: 'employee', payload: newEmployee });
       setNewEmployeeName('');
       setNewEmployeeRoleId('');
       setNewEmployeePhoto(null);
@@ -456,13 +444,12 @@ export default function FuncionariosPage() {
   };
 
   const handleUpdateFuncionario = async (updatedFuncionario: Funcionario) => {
-    const funcDocRef = doc(db, "funcionarios", updatedFuncionario.id);
-    await setDoc(funcDocRef, updatedFuncionario, { merge: true });
+    await apiCall('/api/staff', 'POST', { type: 'employee', payload: updatedFuncionario });
   };
 
   const handleDeleteEmployee = async (id: string) => {
     if (window.confirm("Tem certeza que deseja deletar este funcionário?")) {
-      await deleteDoc(doc(db, "funcionarios", id));
+        await apiCall(`/api/staff?type=employee&id=${id}`, 'DELETE');
     }
   };
   
@@ -477,32 +464,12 @@ export default function FuncionariosPage() {
     }
   };
 
-  const handleAddBlock = async (block: Block): Promise<boolean> => {
-    const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
-    const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
-
-    const hasConflict = confirmedAppointments.some(app => {
-        if (app.staffId !== block.staffId || app.date !== block.date) {
-            return false;
-        }
-
-        const service = services.find(s => s.id === app.serviceId);
-        if (!service) return false;
-
-        const appStart = new Date(`${app.date}T${app.time}`).getTime();
-        const appEnd = appStart + service.duration * 60 * 1000;
-
-        // Check for overlap
-        return (blockStart < appEnd && blockEnd > appStart);
-    });
-
-    if (hasConflict) {
-        return false; // Conflict found
+  const handleAddBlock = async (block: Block) => {
+    try {
+        await apiCall('/api/staff', 'POST', { type: 'block', payload: block });
+    } catch (error) {
+        throw error; // Re-throw to be caught in the component
     }
-
-    // No conflict, save the block
-    await setDoc(doc(db, 'blocks', block.id), block);
-    return true; // Success
   };
   
   return (

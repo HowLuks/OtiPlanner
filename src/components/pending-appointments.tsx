@@ -11,12 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { useToast } from "@/hooks/use-toast";
-import { acceptRejectAppointment } from '@/ai/flows/accept-reject-appointments';
-import { PendingAppointment, Appointment, Client } from '@/lib/data';
-import { db } from '@/lib/firebase';
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { PendingAppointment } from '@/lib/data';
 import { useData } from '@/contexts/data-context';
-import { updateStaffSales, createTransactionForAppointment } from '@/lib/actions';
 
 
 function PendingAppointmentCard({ 
@@ -26,7 +22,7 @@ function PendingAppointmentCard({
   appointment: PendingAppointment;
   isTimeBlocked: (staffId: string, date: string, time: string, serviceDuration: number) => string | false;
 }) {
-  const { services, funcionarios, saldoEmCaixa, clients } = useData();
+  const { services, funcionarios } = useData();
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
@@ -52,29 +48,6 @@ function PendingAppointmentCard({
 
   const staffOptions = filteredStaff.map(s => ({ value: s.id, label: s.name }));
 
-  const handleClientUpsert = async (name: string, whatsapp: string | undefined) => {
-    if (!whatsapp) return;
-    const normalizedName = name.trim().toLowerCase();
-    const existingClient = clients.find(c => c.name.toLowerCase() === normalizedName);
-
-    if (existingClient) {
-        if (whatsapp && existingClient.whatsapp !== whatsapp) {
-            const clientRef = doc(db, 'clients', existingClient.id);
-            await setDoc(clientRef, { whatsapp: whatsapp }, { merge: true });
-        }
-    } else {
-        const newClientId = `client-${Date.now()}`;
-        const newClient: Client = {
-            id: newClientId,
-            name: name.trim(),
-            whatsapp: whatsapp
-        };
-        const clientRef = doc(db, 'clients', newClientId);
-        await setDoc(clientRef, newClient);
-    }
-  };
-
-  
   const handleConfirm = () => {
     if (!selectedStaffId) {
       alert('Selecione o profissional para confirmar.');
@@ -95,41 +68,22 @@ function PendingAppointmentCard({
 
     startTransition(async () => {
       try {
-        const result = await acceptRejectAppointment({
-          appointmentId: appointment.id,
-          action: 'accept',
-          reason: `User clicked accept`,
+        const response = await fetch('/api/appointments', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pendingAppointment: appointment, selectedStaffId })
         });
         
-        if (result.success) {
-          const staffMember = funcionarios.find(f => f.id === selectedStaffId);
-          if (!staffMember) throw new Error("Funcionário selecionado não encontrado.");
-
-          const newConfirmedAppointment: Appointment = {
-            id: `c${Date.now()}`,
-            date: appointment.date,
-            client: appointment.client,
-            clientWhatsapp: appointment.clientWhatsapp,
-            time: appointment.time,
-            serviceId: appointment.serviceId,
-            staffId: selectedStaffId,
-          };
-          
-          await setDoc(doc(db, 'confirmedAppointments', newConfirmedAppointment.id), newConfirmedAppointment);
-          await deleteDoc(doc(db, 'pendingAppointments', appointment.id));
-          await handleClientUpsert(appointment.client, appointment.clientWhatsapp);
-          await updateStaffSales(staffMember, service, 'add');
-          await createTransactionForAppointment(newConfirmedAppointment, service, staffMember, saldoEmCaixa);
-
-
-          setIsOpen(false);
-          toast({
-            title: `Agendamento Aceito`,
-            description: result.message,
-          });
-        } else {
-          throw new Error(result.message);
+        if (!response.ok) {
+          const { error } = await response.json();
+          throw new Error(error || 'Falha ao confirmar agendamento');
         }
+        
+        setIsOpen(false);
+        toast({
+          title: `Agendamento Aceito`,
+          description: "O agendamento foi confirmado com sucesso.",
+        });
       } catch (error) {
         toast({
           variant: 'destructive',
@@ -143,21 +97,15 @@ function PendingAppointmentCard({
   const handleReject = () => {
     startTransition(async () => {
       try {
-        const result = await acceptRejectAppointment({
-          appointmentId: appointment.id,
-          action: 'reject',
-          reason: `User clicked reject`,
-        });
-        
-        if (result.success) {
-           await deleteDoc(doc(db, 'pendingAppointments', appointment.id));
-          toast({
-            title: `Agendamento Rejeitado`,
-            description: result.message,
-          });
-        } else {
-          throw new Error(result.message);
+        const response = await fetch(`/api/appointments?id=${appointment.id}&type=pending`, { method: 'DELETE' });
+        if (!response.ok) {
+            const { error } = await response.json();
+            throw new Error(error || 'Falha ao rejeitar agendamento');
         }
+        toast({
+            title: `Agendamento Rejeitado`,
+            description: "O agendamento foi removido da lista de pendentes.",
+        });
       } catch (error) {
         toast({
           variant: 'destructive',
@@ -268,7 +216,10 @@ export function PendingAppointments({
 }) {
   const { pendingAppointments, appSettings } = useData();
 
-  if (!appSettings?.manualSelection || pendingAppointments.length === 0) {
+  const showPending = appSettings?.manualSelection || pendingAppointments.length > 0;
+
+
+  if (!showPending) {
     return (
       <Card className="bg-card border-border h-fit">
         <CardHeader>
@@ -276,7 +227,7 @@ export function PendingAppointments({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-center py-8">
-            {appSettings?.manualSelection ? "Nenhum agendamento pendente." : "Seleção manual desativada."}
+            Nenhum agendamento pendente.
           </p>
         </CardContent>
       </Card>
@@ -290,13 +241,17 @@ export function PendingAppointments({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {pendingAppointments.map((appointment) => (
-            <PendingAppointmentCard 
-              key={appointment.id} 
-              appointment={appointment} 
-              isTimeBlocked={isTimeBlocked}
-            />
-          ))}
+          {pendingAppointments.length > 0 ? (
+            pendingAppointments.map((appointment) => (
+              <PendingAppointmentCard 
+                key={appointment.id} 
+                appointment={appointment} 
+                isTimeBlocked={isTimeBlocked}
+              />
+            ))
+          ) : (
+             <p className="text-muted-foreground text-center py-8">Nenhum agendamento pendente.</p>
+          )}
         </div>
       </CardContent>
     </Card>

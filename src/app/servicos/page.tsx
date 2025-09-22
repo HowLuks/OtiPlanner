@@ -25,8 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Combobox } from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { db } from '@/lib/firebase';
-import { doc, setDoc, deleteDoc, writeBatch, collection, getDocs, query, where } from 'firebase/firestore';
 import { useData } from "@/contexts/data-context";
 import { useToast } from "@/hooks/use-toast";
 
@@ -43,46 +41,37 @@ export default function ServicosPage() {
 
   const handleAddNewService = async () => {
     if (newServiceName.trim() && newServicePrice && newServiceDuration && selectedRoleId && services && roles) {
-      const newServiceId = `s${services.length + 1 + Date.now()}`;
-      const newService: Service = {
-        id: newServiceId,
+      const payload = {
         name: newServiceName.trim(),
         price: Number(newServicePrice),
         roleId: selectedRoleId,
         duration: Number(newServiceDuration),
       };
-      await setDoc(doc(db, 'services', newServiceId), newService);
-      setNewServiceName('');
-      setNewServicePrice('');
-      setNewServiceDuration(30);
-      setSelectedRoleId('');
+      
+      try {
+        const response = await fetch('/api/services', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error("Falha ao criar serviço");
+
+        setNewServiceName('');
+        setNewServicePrice('');
+        setNewServiceDuration(30);
+        setSelectedRoleId('');
+        toast({ title: 'Sucesso!', description: 'Serviço adicionado.' });
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível adicionar o serviço.' });
+      }
     }
   };
 
   const handleDeleteService = async (serviceId: string) => {
     if(window.confirm("Tem certeza que deseja deletar este serviço? Todos os agendamentos (confirmados e pendentes) associados a ele também serão removidos.")) {
       try {
-        const batch = writeBatch(db);
-
-        // 1. Delete the service itself
-        const serviceRef = doc(db, 'services', serviceId);
-        batch.delete(serviceRef);
-
-        // 2. Find and delete confirmed appointments with this service
-        const confirmedQuery = query(collection(db, 'confirmedAppointments'), where('serviceId', '==', serviceId));
-        const confirmedSnapshot = await getDocs(confirmedQuery);
-        confirmedSnapshot.forEach(doc => {
-          batch.delete(doc.ref);
-        });
-
-        // 3. Find and delete pending appointments with this service
-        const pendingQuery = query(collection(db, 'pendingAppointments'), where('serviceId', '==', serviceId));
-        const pendingSnapshot = await getDocs(pendingQuery);
-        pendingSnapshot.forEach(doc => {
-          batch.delete(doc.ref);
-        });
-        
-        await batch.commit();
+        const response = await fetch(`/api/services?id=${serviceId}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error("Falha ao deletar serviço");
 
         toast({
           title: 'Sucesso!',

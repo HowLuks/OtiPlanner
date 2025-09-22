@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { collection, onSnapshot, doc, DocumentData, QuerySnapshot, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, DocumentData, QuerySnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
 import { Appointment, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings, StaffQueue, Client } from '@/lib/data';
@@ -19,7 +19,7 @@ interface DataContextType {
   staffQueue: StaffQueue | null;
   clients: Client[];
   loading: boolean;
-  fetchData: () => Promise<void>;
+  fetchData: () => void; // Kept for components that use it, but it's a no-op now
 }
 
 const DataContext = createContext<DataContextType>({
@@ -35,7 +35,7 @@ const DataContext = createContext<DataContextType>({
   staffQueue: null,
   clients: [],
   loading: true,
-  fetchData: async () => {},
+  fetchData: () => {},
 });
 
 const initialState = {
@@ -71,34 +71,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Omit<DataContextType, 'loading' | 'fetchData'>>(initialState);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const allData: any = {};
-      for (const { key, ref, isDoc } of collectionsToListen) {
-        if (isDoc) {
-          const snapshot = await getDocs(ref as any); // This is not correct for a doc
-           // How to fetch a single doc without onSnapshot? getDoc
-           const docSnap = await (ref as any).get();
-            if (docSnap.exists()) {
-                allData[key] = { ...docSnap.data(), id: docSnap.id };
-            } else {
-                allData[key] = null;
-            }
-
-        } else {
-          const snapshot = await getDocs(ref as any);
-          allData[key] = snapshot.docs.map((doc: DocumentData) => ({ ...doc.data(), id: doc.id }));
-        }
-      }
-       setData(prev => ({...prev, ...allData}));
-    } catch (error) {
-        console.error("Error fetching data manually: ", error);
-    } finally {
-        setLoading(false);
-    }
-  }, [user]);
+  const fetchData = useCallback(() => {
+    // This function is now a no-op because onSnapshot handles initial fetching.
+    // It's kept for any legacy components that might still call it on an action.
+  }, []);
 
 
   useEffect(() => {
@@ -167,5 +143,3 @@ export function DataProvider({ children }: { children: ReactNode }) {
 export function useData() {
   return useContext(DataContext);
 }
-
-    

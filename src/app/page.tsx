@@ -13,27 +13,20 @@ import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
-import { Funcionario, Appointment, PendingAppointment, Service, Client } from '@/lib/data';
+import { Funcionario, Service } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
 import { useData } from '@/contexts/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { dayLabels } from '@/lib/constants';
-import { updateStaffSales, createTransactionForAppointment } from '@/lib/actions';
 
 export default function Home() {
   const { 
     services, 
     funcionarios, 
     confirmedAppointments, 
-    pendingAppointments,
     blocks,
     workSchedules,
     appSettings,
-    staffQueue,
-    saldoEmCaixa,
-    clients,
     loading: dataLoading 
   } = useData();
 
@@ -84,7 +77,6 @@ export default function Home() {
     const newAppointmentStart = new Date(`${date}T${time}`).getTime();
     const newAppointmentEnd = newAppointmentStart + serviceDuration * 60 * 1000;
 
-    // Check for conflicts with existing confirmed appointments
     const conflictAppointment = confirmedAppointments.some(existing => {
         if (existing.staffId !== staffId || existing.date !== date) return false;
         const existingService = services.find(s => s.id === existing.serviceId);
@@ -95,7 +87,6 @@ export default function Home() {
     });
     if (conflictAppointment) return 'Este profissional já possui um agendamento conflitante neste horário.';
 
-    // Check for conflicts with blocks
     const conflictBlock = blocks.some(block => {
         if (block.staffId !== staffId || block.date !== date) return false;
         const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
@@ -104,10 +95,9 @@ export default function Home() {
     });
     if (conflictBlock) return 'O profissional tem um bloqueio de tempo neste horário.';
     
-    // Check against work schedule
     const schedule = workSchedules.find(ws => ws.staffId === staffId);
     if (schedule) {
-        const dayIndex = getDay(new Date(date)); // Sunday = 0, Monday = 1, etc.
+        const dayIndex = getDay(new Date(date));
         const dayOfWeek = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'][dayIndex];
         const workHours = schedule.horarios[dayOfWeek as keyof typeof schedule.horarios];
 
@@ -123,118 +113,9 @@ export default function Home() {
         }
     }
 
-
     return false;
   };
-
-  const handleClientUpsert = async (name: string, whatsapp: string) => {
-    const normalizedName = name.trim().toLowerCase();
-    const existingClient = clients.find(c => c.name.toLowerCase() === normalizedName);
-
-    if (existingClient) {
-        if (whatsapp && existingClient.whatsapp !== whatsapp) {
-            const clientRef = doc(db, 'clients', existingClient.id);
-            await setDoc(clientRef, { whatsapp: whatsapp }, { merge: true });
-        }
-    } else {
-        const newClientId = `client-${Date.now()}`;
-        const newClient: Client = {
-            id: newClientId,
-            name: name.trim(),
-            whatsapp: whatsapp
-        };
-        const clientRef = doc(db, 'clients', newClientId);
-        await setDoc(clientRef, newClient);
-    }
-  };
   
-    const findAvailableStaffAndAssign = async (service: Service, date: string, time: string): Promise<boolean> => {
-        if(!service) return false;
-
-        const qualifiedStaff = funcionarios.filter(f => f.roleId === service.roleId);
-        
-        if (qualifiedStaff.length === 0) {
-            setConflictError("Não há funcionários qualificados para este serviço.");
-            return false;
-        }
-
-        const globalQueue = staffQueue?.staffIds || [];
-
-        // 1. Get staff from the queue that are qualified
-        const staffInQueue = globalQueue
-            .map(staffId => qualifiedStaff.find(s => s.id === staffId))
-            .filter((s): s is Funcionario => s !== undefined);
-
-        // 2. Get qualified staff that are not in the queue for some reason
-        const staffNotInQueue = qualifiedStaff.filter(s => !globalQueue.includes(s.id));
-        
-        // 3. The final list to iterate over, respecting queue order
-        const potentialStaff = [...staffInQueue, ...staffNotInQueue];
-
-        if (potentialStaff.length === 0) {
-            setConflictError("Não há funcionários disponíveis para atribuição.");
-            return false;
-        }
-        
-        let assignedStaffId: string | null = null;
-        
-        for(const staff of potentialStaff) {
-            if(!isTimeBlocked(staff.id, date, time, service.duration)){
-                assignedStaffId = staff.id;
-                break;
-            }
-        }
-        
-        if (assignedStaffId) {
-            const assignedStaffMember = funcionarios.find(f => f.id === assignedStaffId)!;
-            const newId = `c${(confirmedAppointments?.length || 0) + Date.now()}`;
-            const newConfirmedAppointment: Appointment = {
-                id: newId,
-                date: date,
-                client: clientName,
-                clientWhatsapp: clientWhatsapp,
-                time: time,
-                serviceId: service.id,
-                staffId: assignedStaffId,
-            };
-            await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
-            await handleClientUpsert(clientName, clientWhatsapp);
-            await updateStaffSales(assignedStaffMember, service, 'add');
-            await createTransactionForAppointment(newConfirmedAppointment, service, assignedStaffMember, saldoEmCaixa);
-
-
-            // Update queue: move the assigned staff to the end
-            const newQueue = globalQueue.filter(id => id !== assignedStaffId);
-            newQueue.push(assignedStaffId);
-            
-            const queueRef = doc(db, 'appState', 'staffQueue');
-            await setDoc(queueRef, { staffIds: newQueue }, { merge: true });
-            
-            toast({
-                title: "Agendamento Automático!",
-                description: `Agendamento confirmado com ${assignedStaffMember?.name}.`,
-            });
-            
-            return true;
-        } else {
-            setConflictError("Nenhum profissional qualificado está disponível neste horário. O agendamento foi adicionado como pendente.");
-            // If no one is available, create a pending appointment as a fallback
-            const newId = `p${(pendingAppointments?.length || 0) + Date.now()}`;
-            const newPendingAppointment: PendingAppointment = {
-                id: newId,
-                date: appointmentDate,
-                client: clientName,
-                clientWhatsapp: clientWhatsapp,
-                time: appointmentTime,
-                serviceId: selectedServiceId,
-            };
-            await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
-            await handleClientUpsert(clientName, clientWhatsapp);
-            return true;
-        }
-    };
-
-
   const handleCreateAppointment = async () => {
     if (!clientName || !appointmentTime || !selectedServiceId || !appointmentDate) {
       alert('Por favor, preencha todos os campos obrigatórios.');
@@ -247,59 +128,81 @@ export default function Home() {
       return;
     }
 
-    let success = false;
+    const effectiveStatus = appSettings?.manualSelection ? appointmentStatus : 'confirmed';
 
-    // Manual Selection Mode
-    if (appSettings?.manualSelection) {
-        if(appointmentStatus === 'pending') {
-            const newId = `p${(pendingAppointments?.length || 0) + Date.now()}`;
-            const newPendingAppointment: PendingAppointment = {
-                id: newId,
-                date: appointmentDate,
-                client: clientName,
-                clientWhatsapp: clientWhatsapp,
-                time: appointmentTime,
-                serviceId: selectedServiceId,
-            };
-            await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
-            await handleClientUpsert(clientName, clientWhatsapp);
-            success = true;
-        } else { // confirmed
-            if (!selectedStaffId) {
-                setConflictError('Por favor, selecione um profissional para confirmar o agendamento.');
-                return;
+    if (effectiveStatus === 'confirmed' && !appSettings?.manualSelection) {
+        // This case should be handled by the /api/appointments/create-auto webhook
+        // For simplicity in the UI, we just create a pending one that can be auto-assigned later
+        // Or we could call the auto-assign logic here.
+        // Let's call the `create-auto` webhook for consistency.
+         try {
+            const response = await fetch('/api/appointments/create-auto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientName,
+                    clientWhatsapp,
+                    date: appointmentDate,
+                    time: appointmentTime,
+                    serviceName: selectedService.name
+                })
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                 throw new Error(result.error || "Falha na atribuição automática.");
             }
-            const blockReason = isTimeBlocked(selectedStaffId, appointmentDate, appointmentTime, selectedService.duration);
-            if (blockReason) {
-                setConflictError(blockReason);
-                return;
-            }
-            const staffMember = funcionarios.find(f => f.id === selectedStaffId)!;
-            const newId = `c${(confirmedAppointments?.length || 0) + Date.now()}`;
-            const newConfirmedAppointment: Appointment = {
-                id: newId,
-                date: appointmentDate,
-                client: clientName,
-                clientWhatsapp: clientWhatsapp,
-                time: appointmentTime,
-                serviceId: selectedServiceId,
-                staffId: selectedStaffId,
-            };
-            await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
-            await handleClientUpsert(clientName, clientWhatsapp);
-            await updateStaffSales(staffMember, selectedService, 'add');
-            await createTransactionForAppointment(newConfirmedAppointment, selectedService, staffMember, saldoEmCaixa);
-            success = true;
+            toast({
+                title: "Sucesso!",
+                description: result.message || `Agendamento criado com status: ${result.status}`,
+            });
+            resetForm();
+            setIsDialogOpen(false);
+        } catch (error) {
+            setConflictError(error instanceof Error ? error.message : "Erro desconhecido");
         }
-    } 
-    // Automatic Assignment Mode
-    else {
-        success = await findAvailableStaffAndAssign(selectedService, appointmentDate, appointmentTime);
+        return;
+    }
+    
+    // Manual flow (pending or confirmed with staff)
+    if (effectiveStatus === 'confirmed') {
+        if (!selectedStaffId) {
+            setConflictError('Por favor, selecione um profissional para confirmar o agendamento.');
+            return;
+        }
+        const blockReason = isTimeBlocked(selectedStaffId, appointmentDate, appointmentTime, selectedService.duration);
+        if (blockReason) {
+            setConflictError(blockReason);
+            return;
+        }
     }
 
-    if(success) {
-      resetForm();
-      setIsDialogOpen(false);
+    try {
+        const payload = {
+            clientName,
+            clientWhatsapp,
+            appointmentDate,
+            appointmentTime,
+            selectedServiceId,
+            selectedStaffId: effectiveStatus === 'confirmed' ? selectedStaffId : undefined,
+            status: effectiveStatus
+        };
+        
+        const response = await fetch('/api/appointments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const { error } = await response.json();
+            throw new Error(error || 'Falha ao criar agendamento');
+        }
+
+        toast({ title: "Sucesso!", description: "Agendamento criado." });
+        resetForm();
+        setIsDialogOpen(false);
+    } catch(error) {
+        setConflictError(error instanceof Error ? error.message : "Erro desconhecido");
     }
   };
   

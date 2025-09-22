@@ -12,8 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Transaction } from "@/lib/data";
-import { db } from "@/lib/firebase";
-import { doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -23,7 +21,7 @@ function TransactionDialog({
     children 
 } : {
     transaction: Partial<Transaction> | null,
-    onSave: (transaction: Omit<Transaction, 'id' | 'appointmentId'>, value: number) => void,
+    onSave: (transactionPayload: any) => Promise<void>,
     children: React.ReactNode
 }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -41,19 +39,23 @@ function TransactionDialog({
         setIsOpen(true);
     }
     
-    const handleSave = () => {
+    const handleSave = async () => {
         const numericValue = parseFloat(value);
         if (isNaN(numericValue)) return;
         
         const formattedValue = numericValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
-        onSave({
+        const payload = {
+            id: transaction?.id,
             date,
             description,
             type,
             value: formattedValue,
-            isIncome: type === 'Entrada'
-        }, numericValue);
+            isIncome: type === 'Entrada',
+            numericValue,
+        };
+
+        await onSave(payload);
         setIsOpen(false);
     }
 
@@ -99,37 +101,21 @@ function TransactionDialog({
 }
 
 export default function FinanceiroPage() {
-    const { transactions, saldoEmCaixa, loading } = useData();
+    const { transactions, loading } = useData();
     const { toast } = useToast();
 
-    const handleSaveTransaction = async (transactionData: Omit<Transaction, 'id' | 'appointmentId'>, numericValue: number, id?: string) => {
-        const transactionId = id || `trans-${Date.now()}`;
+    const handleSaveTransaction = async (payload: any) => {
         try {
-            const batch = writeBatch(db);
-            const transactionRef = doc(db, 'transactions', transactionId);
+            const response = await fetch('/api/transactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error("Falha ao salvar transação");
             
-            let newSaldo = saldoEmCaixa;
-            
-            if (id) { // Editing existing transaction
-                const originalTransaction = transactions.find(t => t.id === id);
-                if (originalTransaction) {
-                    const originalValue = parseFloat(originalTransaction.value.replace('R$', '').replace('.', '').replace(',', '.'));
-                    // Revert original value
-                    newSaldo -= originalTransaction.isIncome ? originalValue : -originalValue;
-                }
-            }
-
-            // Apply new value
-            newSaldo += transactionData.isIncome ? numericValue : -numericValue;
-            
-            batch.set(transactionRef, transactionData, { merge: true });
-            batch.set(doc(db, 'appState', 'saldoEmCaixa'), { value: newSaldo });
-            
-            await batch.commit();
-
             toast({
                 title: 'Sucesso!',
-                description: `Transação ${id ? 'atualizada' : 'criada'} com sucesso.`
+                description: `Transação ${payload.id ? 'atualizada' : 'criada'} com sucesso.`
             });
         } catch(error) {
             console.error("Erro ao salvar transação: ", error);
@@ -153,15 +139,11 @@ export default function FinanceiroPage() {
 
         if(window.confirm('Tem certeza que deseja deletar esta transação?')) {
             try {
-                const batch = writeBatch(db);
-                const value = parseFloat(transaction.value.replace('R$', '').replace('.', '').replace(',', '.'));
-                const newSaldo = saldoEmCaixa - (transaction.isIncome ? value : -value);
-
-                batch.delete(doc(db, 'transactions', transaction.id));
-                batch.set(doc(db, 'appState', 'saldoEmCaixa'), { value: newSaldo });
-
-                await batch.commit();
-
+                const response = await fetch(`/api/transactions?id=${transaction.id}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    const { error } = await response.json();
+                    throw new Error(error);
+                }
                 toast({
                     title: 'Sucesso!',
                     description: 'Transação deletada com sucesso.'
@@ -171,14 +153,14 @@ export default function FinanceiroPage() {
                  toast({
                     variant: 'destructive',
                     title: 'Erro',
-                    description: 'Não foi possível deletar a transação.'
+                    description: error instanceof Error ? error.message : 'Não foi possível deletar a transação.'
                 });
             }
         }
     };
 
     const { totalIncome, totalOutcome } = transactions.reduce((acc, transaction) => {
-        const value = parseFloat(transaction.value.replace('R$', '').replace('.', '').replace(',', '.'));
+        const value = parseFloat(transaction.value.replace(/[^0-9,.]/g, '').replace('.', '').replace(',', '.'));
         if (transaction.isIncome) {
             acc.totalIncome += value;
         } else {
@@ -218,7 +200,7 @@ export default function FinanceiroPage() {
                     <div>
                         <h1 className="text-4xl font-bold tracking-tight">Financeiro</h1>
                     </div>
-                    <TransactionDialog transaction={null} onSave={(data, value) => handleSaveTransaction(data, value)}>
+                    <TransactionDialog transaction={null} onSave={handleSaveTransaction}>
                         <Button className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition-transform hover:scale-105">
                             <Plus className="mr-2" />
                             <span className="truncate">Nova Transação</span>
@@ -264,7 +246,7 @@ export default function FinanceiroPage() {
                                         <TableCell className={`font-medium ${transaction.isIncome ? 'text-green-500' : 'text-red-500'}`}>{transaction.value}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <TransactionDialog transaction={transaction} onSave={(data, value) => handleSaveTransaction(data, value, transaction.id)}>
+                                                <TransactionDialog transaction={transaction} onSave={handleSaveTransaction}>
                                                     <Button variant="ghost" size="icon" disabled={!!transaction.appointmentId}>
                                                         <Edit className="h-4 w-4" />
                                                     </Button>

@@ -13,11 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { User, Phone, Calendar as CalendarIcon, History, Plus, MessageCircle, Trash } from "lucide-react";
-import { doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { doc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 
 function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
@@ -50,13 +50,17 @@ function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
         }
         
         try {
-            const newClientId = `client-${Date.now()}`;
-            const newClient: Client = {
-                id: newClientId,
-                name: name.trim(),
-                whatsapp: whatsapp.trim()
-            };
-            await setDoc(doc(db, 'clients', newClientId), newClient);
+            const response = await fetch('/api/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name.trim(), whatsapp: whatsapp.trim() })
+            });
+
+            if (!response.ok) {
+                const { error } = await response.json();
+                throw new Error(error?.message || "Falha ao adicionar cliente");
+            }
+            
             toast({
                 title: "Sucesso!",
                 description: "Novo cliente adicionado.",
@@ -70,7 +74,7 @@ function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
             toast({
                 variant: "destructive",
                 title: "Erro",
-                description: "Não foi possível adicionar o cliente.",
+                description: error instanceof Error ? error.message : "Não foi possível adicionar o cliente.",
             });
         }
     };
@@ -302,7 +306,6 @@ export default function ClientesPage() {
     const { toast } = useToast();
 
     const clientData = useMemo(() => {
-        const sixtyDaysAgo = subDays(new Date(), 60);
         return clients.map(client => {
             const clientApps = confirmedAppointments
                 .filter(app => app.client.toLowerCase() === client.name.toLowerCase())
@@ -310,7 +313,7 @@ export default function ClientesPage() {
             
             const lastAppointment = clientApps[0];
             const lastAppointmentDate = lastAppointment ? new Date(lastAppointment.date + 'T00:00:00') : null
-            const isActive = lastAppointmentDate ? isAfter(lastAppointmentDate, sixtyDaysAgo) : false;
+            const isActive = lastAppointmentDate ? isAfter(lastAppointmentDate, subDays(new Date(), 60)) : false;
 
             return {
                 client,
@@ -329,14 +332,14 @@ export default function ClientesPage() {
 
         const oneYearAgo = subYears(new Date(), 1);
         const clientsToDelete = clientData.filter(cd => {
-            // Clientes sem agendamento são considerados inativos para deleção
             if (!cd.lastAppointmentDate) return true;
-            // Clientes com último agendamento há mais de um ano
             return isAfter(oneYearAgo, cd.lastAppointmentDate);
         });
 
         if (clientsToDelete.length > 0) {
-            const deletePromises = clientsToDelete.map(cd => deleteDoc(doc(db, 'clients', cd.client.id)));
+            const deletePromises = clientsToDelete.map(cd => 
+                deleteDoc(doc(db, 'clients', cd.client.id))
+            );
             
             Promise.all(deletePromises)
                 .then(() => {
@@ -355,7 +358,8 @@ export default function ClientesPage() {
     const handleDeleteClient = async (clientId: string) => {
         if(window.confirm('Tem certeza que deseja deletar este cliente? Esta ação não pode ser desfeita.')) {
             try {
-                await deleteDoc(doc(db, 'clients', clientId));
+                const response = await fetch(`/api/clients?id=${clientId}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error("Falha ao deletar cliente");
                 toast({
                     title: "Sucesso!",
                     description: "Cliente deletado com sucesso.",

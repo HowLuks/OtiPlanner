@@ -9,8 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
 import { WorkSchedule } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { daysOfWeek, dayLabels } from '@/lib/constants';
@@ -74,8 +72,13 @@ export default function ConfiguracoesPage() {
     const handleSaveSchedule = async () => {
         if (currentSchedule) {
             try {
-                const scheduleRef = doc(db, 'workSchedules', currentSchedule.id);
-                await setDoc(scheduleRef, currentSchedule, { merge: true });
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'schedule', payload: currentSchedule })
+                });
+                if (!response.ok) throw new Error("Falha ao salvar horário");
+
                 toast({
                     title: "Sucesso!",
                     description: "Horário de trabalho salvo com sucesso.",
@@ -91,43 +94,30 @@ export default function ConfiguracoesPage() {
         }
     };
     
+    const saveSettings = async (payload: object, successMessage: string) => {
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'settings', payload })
+            });
+            if (!response.ok) throw new Error("Falha ao salvar configuração");
+            toast({ title: "Sucesso!", description: successMessage });
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erro", description: "Não foi possível salvar a configuração." });
+            return false;
+        }
+        return true;
+    }
+
     const handleManualSelectionToggle = async (checked: boolean) => {
         setManualSelectionEnabled(checked);
-        try {
-            const settingsRef = doc(db, 'appState', 'settings');
-            await setDoc(settingsRef, { manualSelection: checked }, { merge: true });
-             toast({
-                title: "Sucesso!",
-                description: `Seleção manual ${checked ? 'ativada' : 'desativada'}.`,
-            });
-        } catch (error) {
-             console.error("Erro ao salvar configuração: ", error);
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Não foi possível salvar a configuração.",
-            });
-            // Revert optimistic update
-            setManualSelectionEnabled(!checked);
-        }
+        const success = await saveSettings({ manualSelection: checked }, `Seleção manual ${checked ? 'ativada' : 'desativada'}.`);
+        if(!success) setManualSelectionEnabled(!checked);
     }
 
     const handleSaveWebhookUrl = async () => {
-        try {
-            const settingsRef = doc(db, 'appState', 'settings');
-            await setDoc(settingsRef, { appointmentWebhookUrl: webhookUrl }, { merge: true });
-            toast({
-                title: "Sucesso!",
-                description: "URL do webhook salva com sucesso.",
-            });
-        } catch (error) {
-            console.error("Erro ao salvar URL do webhook: ", error);
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Não foi possível salvar a URL do webhook.",
-            });
-        }
+        await saveSettings({ appointmentWebhookUrl: webhookUrl }, "URL do webhook salva com sucesso.");
     };
 
 
