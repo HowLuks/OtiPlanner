@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "next build",
+    "build:ai": "tsc --project tsconfig.ai.json",
+    "build": "npm run build:ai && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"

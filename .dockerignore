@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Node
+node_modules
+npm-debug.log
+.npm
+
+# Build output
+.next
+dist
+build
+
+# Env
+.env
+.env.local
+
+# Misc
+README.md
