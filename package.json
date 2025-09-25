@@ -8,6 +8,7 @@
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build:ai": "tsc --project tsconfig.ai.json",
     "build": "npm run build:ai && next build",
+    "build:next": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
