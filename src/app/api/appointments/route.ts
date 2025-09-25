@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, deleteDoc, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, writeBatch, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { Appointment, PendingAppointment, Service, Funcionario, Client, AppSettings, StaffQueue, Transaction } from '@/lib/data';
 import { z } from 'zod';
 import { getDay } from 'date-fns';
@@ -32,7 +32,7 @@ const rejectionSchema = z.object({
 async function upsertClient(name: string, whatsapp?: string) {
     if (!whatsapp) return;
     const clientsRef = collection(db, 'clients');
-    const q = query(collection(db, 'clients'), where('whatsapp', '==', whatsapp));
+    const q = query(clientsRef, where('whatsapp', '==', whatsapp));
     const querySnapshot = await getDocs(q);
 
     if (!querySnapshot.empty) {
