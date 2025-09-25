@@ -12,21 +12,6 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-    depends_on:
-      - genkit
-
-  genkit:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: meu-saas-genkit
-    command: genkit start -- node dist/ai/dev.js
-    environment:
-      - NODE_ENV=production
-      # Pass the Gemini API key from your host .env file
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-    env_file:
-      - .env
 
 volumes:
   node_modules:
