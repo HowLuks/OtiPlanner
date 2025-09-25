@@ -242,7 +242,7 @@ export default function FinanceiroPage() {
                                                         <Edit className="h-4 w-4" />
                                                     </Button>
                                                 </TransactionDialog>
-                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteTransaction(transaction)}>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteTransaction(transaction)} disabled={!!transaction.appointmentId}>
                                                     <Trash className="h-4 w-4 text-destructive" />
                                                 </Button>
                                             </div>
