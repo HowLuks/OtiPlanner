@@ -79,10 +79,6 @@ export async function DELETE(request: Request) {
         }
         const transaction = transactionSnap.data() as Transaction;
 
-        if(transaction.appointmentId) {
-            return NextResponse.json({ success: false, error: 'Transações de agendamentos não podem ser deletadas.' }, { status: 403 });
-        }
-
         const batch = writeBatch(db);
         const saldoRef = doc(db, 'appState', 'saldoEmCaixa');
         const saldoSnap = await getDoc(saldoRef);

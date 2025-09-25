@@ -128,15 +128,6 @@ export default function FinanceiroPage() {
     };
 
     const handleDeleteTransaction = async (transaction: Transaction) => {
-        if(transaction.appointmentId) {
-             toast({
-                variant: 'destructive',
-                title: 'Ação não permitida',
-                description: 'Transações de agendamentos não podem ser deletadas diretamente. Exclua o agendamento correspondente.'
-            });
-            return;
-        }
-
         if(window.confirm('Tem certeza que deseja deletar esta transação?')) {
             try {
                 const response = await fetch(`/api/transactions?id=${transaction.id}`, { method: 'DELETE' });
@@ -251,7 +242,7 @@ export default function FinanceiroPage() {
                                                         <Edit className="h-4 w-4" />
                                                     </Button>
                                                 </TransactionDialog>
-                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteTransaction(transaction)} disabled={!!transaction.appointmentId}>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteTransaction(transaction)}>
                                                     <Trash className="h-4 w-4 text-destructive" />
                                                 </Button>
                                             </div>
