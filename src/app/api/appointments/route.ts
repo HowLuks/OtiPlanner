@@ -85,7 +85,7 @@ async function manageTransaction(appointment: Appointment, service: Service, ope
             isIncome: true,
             appointmentId: appointment.id
         };
-        batch.set(transactionRef, newTransaction);
+        batch.set(transactionRef, { id: transactionId, ...newTransaction });
         batch.set(saldoRef, { value: saldoAtual + service.price });
     } else {
         batch.delete(transactionRef);

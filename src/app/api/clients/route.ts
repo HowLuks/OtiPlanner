@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { Client } from '@/lib/data';
 import { z } from 'zod';
 
