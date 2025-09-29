@@ -16,8 +16,6 @@ import { User, Phone, Calendar as CalendarIcon, History, Plus, MessageCircle, Tr
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { doc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 
 function AddClientDialog({ onClientAdded }: { onClientAdded: () => void }) {
@@ -327,33 +325,21 @@ export default function ClientesPage() {
         });
     }, [clients, confirmedAppointments]);
 
-    useEffect(() => {
-        if (loading) return;
+    // This logic should be moved to a backend cron job or a manual cleanup feature in the UI.
+    // useEffect(() => {
+    //     if (loading) return;
 
-        const oneYearAgo = subYears(new Date(), 1);
-        const clientsToDelete = clientData.filter(cd => {
-            if (!cd.lastAppointmentDate) return true;
-            return isAfter(oneYearAgo, cd.lastAppointmentDate);
-        });
+    //     const oneYearAgo = subYears(new Date(), 1);
+    //     const clientsToDelete = clientData.filter(cd => {
+    //         if (!cd.lastAppointmentDate) return true;
+    //         return isAfter(oneYearAgo, cd.lastAppointmentDate);
+    //     });
 
-        if (clientsToDelete.length > 0) {
-            const deletePromises = clientsToDelete.map(cd => 
-                deleteDoc(doc(db, 'clients', cd.client.id))
-            );
-            
-            Promise.all(deletePromises)
-                .then(() => {
-                    console.log(`${clientsToDelete.length} clientes inativos foram deletados.`);
-                    toast({
-                        title: "Limpeza Automática",
-                        description: `${clientsToDelete.length} cliente(s) inativo(s) há mais de 1 ano foram removidos.`,
-                    });
-                })
-                .catch(error => {
-                    console.error("Erro ao deletar clientes inativos:", error);
-                });
-        }
-    }, [clientData, loading, toast]);
+    //     if (clientsToDelete.length > 0) {
+    //         // This should be an API call to the backend.
+    //         console.log("Clients to delete (inactive > 1 year):", clientsToDelete.map(c => c.client.id));
+    //     }
+    // }, [clientData, loading, toast]);
     
     const handleDeleteClient = async (clientId: string) => {
         if(window.confirm('Tem certeza que deseja deletar este cliente? Esta ação não pode ser desfeita.')) {
