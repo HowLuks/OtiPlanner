@@ -1,4 +1,5 @@
 // src/lib/db.ts
+import 'dotenv/config';
 import mysql from 'mysql2/promise';
 
 // Crie o pool de conexões.
