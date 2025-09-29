@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
-    "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
-    "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
+    "genkit:dev": "genkit start -- node src/ai/dev.js",
+    "genkit:watch": "genkit start -- node --watch src/ai/dev.js",
     "build:ai": "tsc --project tsconfig.ai.json",
-    "build": "npm run build:ai && next build",
+    "build": "npm run build:ai && npm run build:next",
     "build:next": "next build",
     "start": "next start",
     "lint": "next lint",
