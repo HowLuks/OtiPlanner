@@ -7,11 +7,13 @@ services:
       dockerfile: Dockerfile
     container_name: meu-saas-app
     ports:
-      - "0030:0030"
+      - "3000:3000"
     command: npm start
+    env_file:
+      - ./.env
     environment:
       - NODE_ENV=production
-      - PORT=0030
+      - PORT=3000
 
 volumes:
   node_modules:

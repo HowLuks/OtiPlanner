@@ -1,25 +1,37 @@
-# 1. Base Image
-FROM node:20-slim
-
-# 2. Set working directory
+# 1. Install dependencies
+FROM node:18-alpine AS deps
 WORKDIR /app
 
-# 3. Copy package.json and lock file
-COPY package*.json ./
+# Copy package.json and lock file
+COPY package.json package-lock.json ./
 
-# 4. Install all dependencies
+# Install dependencies
 RUN npm install
 
-# 5. Copy all source code
+# 2. Build the app
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 6. Build the application (Next.js only for this container)
-# This will use a specific "build:next" script from package.json
-RUN npm run build:next
+# Build the Next.js app
+RUN npm run build
 
-# 7. Expose the port Next.js runs on
+# 3. Production image
+FROM node:18-alpine AS runner
+WORKDIR /app
+
+# Set environment to production
+ENV NODE_ENV=production
+
+# Copy built assets
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+# Expose port 3000
 EXPOSE 3000
 
-# 8. Command to run the application
-# This will use the "start" script from package.json
+# Start the app
 CMD ["npm", "start"]
