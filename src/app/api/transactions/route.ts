@@ -17,6 +17,30 @@ const transactionSchema = z.object({
   numericValue: z.number(), // The actual number
 });
 
+export async function GET() {
+  const connection = await pool.getConnection();
+  try {
+    const [rows] = await connection.query<RowDataPacket[]>("SELECT * FROM financeiro");
+     const transactions = rows.map(row => ({
+        id: row.id,
+        date: new Date(row.data).toISOString().split('T')[0], // Format date
+        description: row.description,
+        type: row.tipo === 'entrada' ? 'Entrada' : 'Saída',
+        value: `R$ ${parseFloat(row.valor).toFixed(2).replace('.', ',')}`,
+        isIncome: row.tipo === 'entrada',
+        appointmentId: row.agendamento_id,
+    }));
+    return NextResponse.json(transactions as Transaction[]);
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ error: 'Server error: ' + errorMessage }, { status: 500 });
+  } finally {
+    connection.release();
+  }
+}
+
+
 export async function POST(request: Request) {
     const connection = await pool.getConnection();
     try {

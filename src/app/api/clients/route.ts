@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { ResultSetHeader } from 'mysql2';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { Client } from '@/lib/data';
 import { z } from 'zod';
 
@@ -11,6 +11,20 @@ const clientSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
   whatsapp: z.string().min(1, "WhatsApp é obrigatório"),
 });
+
+export async function GET() {
+  const connection = await pool.getConnection();
+  try {
+    const [rows] = await connection.query<RowDataPacket[]>("SELECT * FROM clientes");
+    return NextResponse.json(rows as Client[]);
+  } catch (error) {
+    console.error('Error fetching clients:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return NextResponse.json({ error: 'Server error: ' + errorMessage }, { status: 500 });
+  } finally {
+    connection.release();
+  }
+}
 
 export async function POST(request: Request) {
   try {
