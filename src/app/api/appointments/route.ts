@@ -10,7 +10,7 @@ import { z } from 'zod';
 // Schemas
 const appointmentSchema = z.object({
   clientName: z.string().min(1),
-  clientWhatsapp: z.string().optional(),
+  clientWhatsapp: z.string().min(1, "WhatsApp é obrigatório"),
   appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   appointmentTime: z.string().regex(/^\d{2}:\d{2}$/),
   selectedServiceId: z.string().min(1),
@@ -24,8 +24,7 @@ const confirmationSchema = z.object({
 });
 
 // Helper: Upsert Client
-async function upsertClient(connection: any, name: string, whatsapp?: string) {
-    if (!whatsapp) return;
+async function upsertClient(connection: any, name: string, whatsapp: string) {
     const [rows] = await connection.query<RowDataPacket[]>("SELECT id FROM clientes WHERE whatsapp = ?", [whatsapp]);
     if (rows.length > 0) {
         await connection.query("UPDATE clientes SET name = ? WHERE id = ?", [name, rows[0].id]);

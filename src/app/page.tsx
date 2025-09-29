@@ -117,7 +117,7 @@ export default function Home() {
   };
   
   const handleCreateAppointment = async () => {
-    if (!clientName || !appointmentTime || !selectedServiceId || !appointmentDate) {
+    if (!clientName || !clientWhatsapp || !appointmentTime || !selectedServiceId || !appointmentDate) {
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
@@ -254,7 +254,7 @@ export default function Home() {
                     <Label htmlFor="client-whatsapp" className="text-right">
                       WhatsApp
                     </Label>
-                    <Input id="client-whatsapp" value={clientWhatsapp} onChange={e => setClientWhatsapp(e.target.value)} className="col-span-3" placeholder="(Opcional)" />
+                    <Input id="client-whatsapp" value={clientWhatsapp} onChange={e => setClientWhatsapp(e.target.value)} className="col-span-3" placeholder="WhatsApp do cliente" />
                   </div>
                    <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="appointment-date" className="text-right">
