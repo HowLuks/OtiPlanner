@@ -14,7 +14,7 @@ async function main() {
     // Limpar tabelas na ordem correta para evitar problemas de chave estrangeira
     console.log('Limpando tabelas existentes...');
     await connection.query('SET FOREIGN_KEY_CHECKS = 0;');
-    await connection.query('TRUNCATE TABLE horarios_trabalho;');
+    await connection.query('TRUNCATE TABLE carga_horaria;');
     await connection.query('TRUNCATE TABLE folgas;');
     await connection.query('TRUNCATE TABLE financeiro;');
     await connection.query('TRUNCATE TABLE agendamentos_pendentes;');
