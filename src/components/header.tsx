@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/sheet";
 import { Logo } from "@/components/icons";
 import { usePathname } from "next/navigation";
-import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -33,21 +32,12 @@ export function AppHeader() {
   const { toast } = useToast();
 
   const handleSignOut = async () => {
-    try {
-      await auth.signOut();
-      toast({
-        title: "Você saiu!",
-        description: "Você foi desconectado com sucesso.",
-      });
-      router.push('/login');
-    } catch (error) {
-      console.error("Erro ao sair:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao sair",
-        description: "Não foi possível fazer o logout. Tente novamente.",
-      });
-    }
+    // TODO: Implementar lógica de logout com a nova API
+    toast({
+      title: "Logout",
+      description: "Funcionalidade de logout a ser implementada.",
+    });
+    // router.push('/login');
   };
 
 

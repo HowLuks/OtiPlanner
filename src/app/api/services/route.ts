@@ -2,8 +2,8 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, deleteDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import pool from '@/lib/db';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { Service } from '@/lib/data';
 import { z } from 'zod';
 
@@ -15,6 +15,7 @@ const serviceSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const connection = await pool.getConnection();
   try {
     const body = await request.json();
     const validation = serviceSchema.safeParse(body);
@@ -28,16 +29,20 @@ export async function POST(request: Request) {
       ...validation.data,
     };
     
-    await setDoc(doc(db, 'services', newServiceId), newService);
+    await connection.query("INSERT INTO servicos (id, name, price, duration, roleId) VALUES (?, ?, ?, ?, ?)", 
+        [newService.id, newService.name, newService.price, newService.duration, newService.roleId]);
     
     return NextResponse.json({ success: true, service: newService }, { status: 201 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ success: false, error: 'Server error: ' + errorMessage }, { status: 500 });
+  } finally {
+      connection.release();
   }
 }
 
 export async function DELETE(request: Request) {
+    const connection = await pool.getConnection();
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -46,24 +51,24 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ success: false, error: 'Service ID is required' }, { status: 400 });
         }
         
-        const batch = writeBatch(db);
-        const serviceRef = doc(db, 'services', id);
-        batch.delete(serviceRef);
-
-        const confirmedQuery = query(collection(db, 'confirmedAppointments'), where('serviceId', '==', id));
-        const confirmedSnapshot = await getDocs(confirmedQuery);
-        confirmedSnapshot.forEach(doc => batch.delete(doc.ref));
-
-        const pendingQuery = query(collection(db, 'pendingAppointments'), where('serviceId', '==', id));
-        const pendingSnapshot = await getDocs(pendingQuery);
-        pendingSnapshot.forEach(doc => batch.delete(doc.ref));
+        await connection.beginTransaction();
         
-        await batch.commit();
+        // Delete associated appointments
+        await connection.query("DELETE FROM agendamentos WHERE serviceId = ?", [id]);
+        await connection.query("DELETE FROM agendamentos_pendentes WHERE serviceId = ?", [id]);
+
+        // Delete the service itself
+        await connection.query("DELETE FROM servicos WHERE id = ?", [id]);
+
+        await connection.commit();
         
         return NextResponse.json({ success: true, message: 'Serviço e agendamentos associados foram deletados.' });
 
     } catch (error) {
+        await connection.rollback();
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         return NextResponse.json({ success: false, error: 'Server error: ' + errorMessage }, { status: 500 });
+    } finally {
+        connection.release();
     }
 }

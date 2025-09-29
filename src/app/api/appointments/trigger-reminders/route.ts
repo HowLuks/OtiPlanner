@@ -2,14 +2,22 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import pool from '@/lib/db';
+import { RowDataPacket } from 'mysql2';
 import { Appointment, AppSettings } from '@/lib/data';
 import { format, addDays } from 'date-fns';
 
 async function getAppSettings(): Promise<AppSettings | null> {
-    const settingsDoc = await getDoc(doc(db, 'appState', 'settings'));
-    return settingsDoc.exists() ? settingsDoc.data() as AppSettings : null;
+    const connection = await pool.getConnection();
+    try {
+        const [rows] = await connection.query<RowDataPacket[]>("SELECT * FROM configuracoes WHERE id = 'settings'");
+        if (rows.length > 0) {
+            return { id: 'settings', manualSelection: !!rows[0].manualSelection, appointmentWebhookUrl: rows[0].webhook };
+        }
+        return null;
+    } finally {
+        connection.release();
+    }
 }
 
 export async function POST(request: Request) {
@@ -25,16 +33,20 @@ export async function POST(request: Request) {
         const tomorrow = addDays(new Date(), 1);
         const tomorrowDateString = format(tomorrow, 'yyyy-MM-dd');
 
-        const appointmentsRef = collection(db, 'confirmedAppointments');
-        const q = query(appointmentsRef, where('date', '==', tomorrowDateString));
-        const querySnapshot = await getDocs(q);
+        const connection = await pool.getConnection();
+        const [rows] = await connection.query<RowDataPacket[]>(
+            "SELECT a.id, a.client, c.whatsapp as clientWhatsapp, a.time FROM agendamentos a LEFT JOIN clientes c ON a.client = c.name WHERE a.date = ?",
+            [tomorrowDateString]
+        );
+        connection.release();
+        
+        const appointments = rows as Appointment[];
 
-        if (querySnapshot.empty) {
+        if (appointments.length === 0) {
             console.log(`No appointments found for tomorrow (${tomorrowDateString}).`);
             return NextResponse.json({ success: true, message: 'No appointments for tomorrow.', sent: 0 });
         }
 
-        const appointments = querySnapshot.docs.map(doc => doc.data() as Appointment);
         let sentCount = 0;
         const errors = [];
 
@@ -48,9 +60,7 @@ export async function POST(request: Request) {
             try {
                 const response = await fetch(webhookUrl, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
                 });
 
@@ -83,3 +93,5 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
     }
 }
+
+  

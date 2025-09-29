@@ -2,11 +2,10 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, deleteDoc, writeBatch, getDoc, query, where, getDocs } from 'firebase/firestore';
-import { Appointment, PendingAppointment, Service, Funcionario, Client, AppSettings, StaffQueue, Transaction } from '@/lib/data';
+import pool from '@/lib/db';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { Appointment, PendingAppointment, Service, Funcionario, Client, Transaction } from '@/lib/data';
 import { z } from 'zod';
-import { getDay } from 'date-fns';
 
 // Schemas
 const appointmentSchema = z.object({
@@ -24,80 +23,45 @@ const confirmationSchema = z.object({
     selectedStaffId: z.string().min(1),
 });
 
-const rejectionSchema = z.object({
-    appointmentId: z.string().min(1),
-});
-
 // Helper: Upsert Client
-async function upsertClient(name: string, whatsapp?: string) {
+async function upsertClient(connection: any, name: string, whatsapp?: string) {
     if (!whatsapp) return;
-    const clientsRef = collection(db, 'clients');
-    const q = query(clientsRef, where('whatsapp', '==', whatsapp));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-        const clientDoc = querySnapshot.docs[0];
-        if (clientDoc.data().name !== name) {
-            await setDoc(doc(db, 'clients', clientDoc.id), { name }, { merge: true });
-        }
+    const [rows] = await connection.query<RowDataPacket[]>("SELECT id FROM clientes WHERE whatsapp = ?", [whatsapp]);
+    if (rows.length > 0) {
+        await connection.query("UPDATE clientes SET name = ? WHERE id = ?", [name, rows[0].id]);
     } else {
         const newClientId = `client-${Date.now()}`;
-        const newClient: Client = { id: newClientId, name: name.trim(), whatsapp: whatsapp.trim() };
-        await setDoc(doc(db, 'clients', newClientId), newClient);
+        await connection.query("INSERT INTO clientes (id, name, whatsapp) VALUES (?, ?, ?)", [newClientId, name.trim(), whatsapp.trim()]);
     }
 }
 
 // Helper: Update Staff Sales
-async function updateStaffSales(staffId: string, serviceId: string, operation: 'add' | 'subtract') {
-    const [staffDoc, serviceDoc] = await Promise.all([
-        getDoc(doc(db, 'funcionarios', staffId)),
-        getDoc(doc(db, 'services', serviceId))
-    ]);
-
-    if (!staffDoc.exists() || !serviceDoc.exists()) return;
-    
-    const staff = staffDoc.data() as Funcionario;
-    const service = serviceDoc.data() as Service;
-    const price = service.price;
-
-    const newSalesValue = operation === 'add' ? staff.salesValue + price : staff.salesValue - price;
-    const newSalesGoal = staff.salesTarget > 0 ? Math.round((newSalesValue / staff.salesTarget) * 100) : 0;
-    
-    await setDoc(doc(db, 'funcionarios', staffId), { salesValue: newSalesValue, salesGoal: newSalesGoal }, { merge: true });
+async function updateStaffSales(connection: any, staffId: string, servicePrice: number, operation: 'add' | 'subtract') {
+    const operator = operation === 'add' ? '+' : '-';
+    await connection.query(`UPDATE funcionarios SET salesValue = salesValue ${operator} ? WHERE id = ?`, [servicePrice, staffId]);
+    // Recalculating percentage can be done here or via a DB trigger for better performance
+    const [staffRows] = await connection.query<RowDataPacket[]>("SELECT salesValue, salesTarget FROM funcionarios WHERE id = ?", [staffId]);
+    const staff = staffRows[0];
+    const newSalesGoal = staff.salesTarget > 0 ? Math.round((staff.salesValue / staff.salesTarget) * 100) : 0;
+    await connection.query("UPDATE funcionarios SET salesGoalPercentage = ? WHERE id = ?", [newSalesGoal, staffId]);
 }
 
 // Helper: Manage Transaction
-async function manageTransaction(appointment: Appointment, service: Service, operation: 'add' | 'subtract') {
+async function manageTransaction(connection: any, appointment: Appointment, service: Service, operation: 'add' | 'subtract') {
     const transactionId = `trans-app-${appointment.id}`;
-    const transactionRef = doc(db, 'transactions', transactionId);
-    const saldoRef = doc(db, 'appState', 'saldoEmCaixa');
-
-    const batch = writeBatch(db);
-    const saldoSnap = await getDoc(saldoRef);
-    const saldoAtual = saldoSnap.exists() ? saldoSnap.data().value : 0;
-    
     if (operation === 'add') {
-        const newTransaction: Omit<Transaction, 'id'> = {
-            date: appointment.date,
-            description: `${service.name} - ${appointment.client}`,
-            type: 'Entrada',
-            value: service.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-            isIncome: true,
-            appointmentId: appointment.id
-        };
-        batch.set(transactionRef, { id: transactionId, ...newTransaction });
-        batch.set(saldoRef, { value: saldoAtual + service.price });
+        await connection.query(
+            "INSERT INTO financeiro (id, data, description, valor, tipo, agendamento_id) VALUES (?, ?, ?, ?, ?, ?)",
+            [transactionId, appointment.date, `${service.name} - ${appointment.client}`, service.price, 'entrada', appointment.id]
+        );
     } else {
-        batch.delete(transactionRef);
-        batch.set(saldoRef, { value: saldoAtual - service.price });
+        await connection.query("DELETE FROM financeiro WHERE id = ?", [transactionId]);
     }
-
-    await batch.commit();
 }
-
 
 // POST: Create new confirmed/pending appointment
 export async function POST(request: Request) {
+    const connection = await pool.getConnection();
     try {
         const body = await request.json();
         const validation = appointmentSchema.safeParse(body);
@@ -105,46 +69,61 @@ export async function POST(request: Request) {
         
         const { clientName, clientWhatsapp, appointmentDate, appointmentTime, selectedServiceId, selectedStaffId, status } = validation.data;
         
-        await upsertClient(clientName, clientWhatsapp);
+        await connection.beginTransaction();
+        await upsertClient(connection, clientName, clientWhatsapp);
 
         if (status === 'pending') {
             const newId = `p${Date.now()}`;
             const newPending: PendingAppointment = { id: newId, date: appointmentDate, time: appointmentTime, client: clientName, clientWhatsapp, serviceId: selectedServiceId };
-            await setDoc(doc(db, 'pendingAppointments', newId), newPending);
+            await connection.query("INSERT INTO agendamentos_pendentes (id, date, time, client, serviceId) VALUES (?, ?, ?, ?, ?)", 
+                [newId, appointmentDate, appointmentTime, clientName, selectedServiceId]);
+            await connection.commit();
             return NextResponse.json({ success: true, appointment: newPending });
         }
 
         // --- Handling Confirmed Appointments ---
-        if (!selectedStaffId) return NextResponse.json({ success: false, error: "Staff ID é obrigatório para agendamentos confirmados." }, { status: 400 });
+        if (!selectedStaffId) {
+            await connection.rollback();
+            return NextResponse.json({ success: false, error: "Staff ID é obrigatório para agendamentos confirmados." }, { status: 400 });
+        }
+
+        const [serviceRows] = await connection.query<RowDataPacket[]>("SELECT * FROM servicos WHERE id = ?", [selectedServiceId]);
+        if (serviceRows.length === 0) throw new Error("Serviço não encontrado");
+        const service = serviceRows[0] as Service;
 
         const newId = `c${Date.now()}`;
         const newConfirmed: Appointment = { id: newId, date: appointmentDate, time: appointmentTime, client: clientName, clientWhatsapp, serviceId: selectedServiceId, staffId: selectedStaffId };
         
-        const serviceDoc = await getDoc(doc(db, 'services', selectedServiceId));
-        if (!serviceDoc.exists()) throw new Error("Serviço não encontrado");
-        const service = serviceDoc.data() as Service;
+        await connection.query("INSERT INTO agendamentos (id, date, time, client, serviceId, staffId) VALUES (?, ?, ?, ?, ?, ?)",
+            [newId, appointmentDate, appointmentTime, clientName, selectedServiceId, selectedStaffId]);
+        
+        await updateStaffSales(connection, selectedStaffId, service.price, 'add');
+        await manageTransaction(connection, newConfirmed, service, 'add');
 
-        await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmed);
-        await updateStaffSales(selectedStaffId, selectedServiceId, 'add');
-        await manageTransaction(newConfirmed, service, 'add');
-
+        await connection.commit();
         return NextResponse.json({ success: true, appointment: newConfirmed }, { status: 201 });
 
     } catch (e) {
+        await connection.rollback();
         const error = e as Error;
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    } finally {
+        connection.release();
     }
 }
 
 
 // PUT: Confirm a pending appointment
 export async function PUT(request: Request) {
+    const connection = await pool.getConnection();
     try {
         const body = await request.json();
         const validation = confirmationSchema.safeParse(body);
         if (!validation.success) return NextResponse.json({ success: false, error: validation.error.flatten() }, { status: 400 });
 
         const { pendingAppointment, selectedStaffId } = validation.data;
+
+        await connection.beginTransaction();
 
         // Create confirmed appointment
         const newConfirmedId = `c${Date.now()}`;
@@ -158,60 +137,73 @@ export async function PUT(request: Request) {
             staffId: selectedStaffId
         };
         
-        const serviceDoc = await getDoc(doc(db, 'services', newConfirmed.serviceId));
-        if (!serviceDoc.exists()) throw new Error("Serviço não encontrado");
-        const service = serviceDoc.data() as Service;
+        const [serviceRows] = await connection.query<RowDataPacket[]>("SELECT * FROM servicos WHERE id = ?", [newConfirmed.serviceId]);
+        if (serviceRows.length === 0) throw new Error("Serviço não encontrado");
+        const service = serviceRows[0] as Service;
 
-        const batch = writeBatch(db);
-        batch.set(doc(db, 'confirmedAppointments', newConfirmedId), newConfirmed);
-        batch.delete(doc(db, 'pendingAppointments', pendingAppointment.id));
-        await batch.commit();
+        await connection.query("INSERT INTO agendamentos (id, date, time, client, serviceId, staffId) VALUES (?, ?, ?, ?, ?, ?)",
+            [newConfirmedId, newConfirmed.date, newConfirmed.time, newConfirmed.client, newConfirmed.serviceId, selectedStaffId]);
+        
+        await connection.query("DELETE FROM agendamentos_pendentes WHERE id = ?", [pendingAppointment.id]);
+        
+        await updateStaffSales(connection, selectedStaffId, service.price, 'add');
+        await manageTransaction(connection, newConfirmed, service, 'add');
 
-        // Update sales and transaction
-        await updateStaffSales(selectedStaffId, newConfirmed.serviceId, 'add');
-        await manageTransaction(newConfirmed, service, 'add');
+        await connection.commit();
 
         return NextResponse.json({ success: true, appointment: newConfirmed });
     } catch (e) {
+        await connection.rollback();
         const error = e as Error;
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    } finally {
+        connection.release();
     }
 }
 
 
 // DELETE: Reject pending or delete confirmed
 export async function DELETE(request: Request) {
+    const connection = await pool.getConnection();
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
-        const type = searchParams.get('type'); // 'pending' or 'confirmed'
+        const type = searchParams.get('type');
         
         if (!id || !type) return NextResponse.json({ success: false, error: "ID e tipo são obrigatórios" }, { status: 400 });
 
+        await connection.beginTransaction();
+
         if (type === 'pending') {
-            await deleteDoc(doc(db, 'pendingAppointments', id));
+            await connection.query("DELETE FROM agendamentos_pendentes WHERE id = ?", [id]);
+            await connection.commit();
             return NextResponse.json({ success: true, message: 'Agendamento pendente rejeitado.' });
         }
 
         if (type === 'confirmed') {
-            const appDoc = await getDoc(doc(db, 'confirmedAppointments', id));
-            if (!appDoc.exists()) return NextResponse.json({ success: false, error: "Agendamento não encontrado" }, { status: 404 });
-            const appointment = appDoc.data() as Appointment;
+            const [appRows] = await connection.query<RowDataPacket[]>("SELECT * FROM agendamentos WHERE id = ?", [id]);
+            if (appRows.length === 0) return NextResponse.json({ success: false, error: "Agendamento não encontrado" }, { status: 404 });
+            const appointment = appRows[0] as Appointment;
             
-            const serviceDoc = await getDoc(doc(db, 'services', appointment.serviceId));
-            if (!serviceDoc.exists()) throw new Error("Serviço não encontrado para o agendamento");
-            const service = serviceDoc.data() as Service;
+            const [serviceRows] = await connection.query<RowDataPacket[]>("SELECT * FROM servicos WHERE id = ?", [appointment.serviceId]);
+            if (serviceRows.length === 0) throw new Error("Serviço não encontrado para o agendamento");
+            const service = serviceRows[0] as Service;
 
-            await deleteDoc(doc(db, "confirmedAppointments", id));
-            await updateStaffSales(appointment.staffId, appointment.serviceId, 'subtract');
-            await manageTransaction(appointment, service, 'subtract');
+            await connection.query("DELETE FROM agendamentos WHERE id = ?", [id]);
+            await updateStaffSales(connection, appointment.staffId, service.price, 'subtract');
+            await manageTransaction(connection, appointment, service, 'subtract');
 
+            await connection.commit();
             return NextResponse.json({ success: true, message: 'Agendamento confirmado deletado.' });
         }
-
+        
+        await connection.rollback();
         return NextResponse.json({ success: false, error: 'Tipo inválido' }, { status: 400 });
     } catch (e) {
+        await connection.rollback();
         const error = e as Error;
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    } finally {
+        connection.release();
     }
 }

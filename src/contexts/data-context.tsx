@@ -1,8 +1,6 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { collection, onSnapshot, doc, DocumentData, QuerySnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useAuth } from './auth-context';
 import { Appointment, Funcionario, PendingAppointment, Role, Service, Transaction, Block, WorkSchedule, AppSettings, StaffQueue, Client } from '@/lib/data';
 
@@ -19,10 +17,10 @@ interface DataContextType {
   staffQueue: StaffQueue | null;
   clients: Client[];
   loading: boolean;
-  fetchData: () => void; // Kept for components that use it, but it's a no-op now
+  fetchData: () => void;
 }
 
-const DataContext = createContext<DataContextType>({
+const initialState: Omit<DataContextType, 'loading' | 'fetchData'> = {
   services: [],
   roles: [],
   funcionarios: [],
@@ -34,36 +32,18 @@ const DataContext = createContext<DataContextType>({
   appSettings: null,
   staffQueue: null,
   clients: [],
+};
+
+const DataContext = createContext<DataContextType>({
+  ...initialState,
   loading: true,
   fetchData: () => {},
 });
 
-const initialState = {
-    services: [],
-    roles: [],
-    funcionarios: [],
-    confirmedAppointments: [],
-    pendingAppointments: [],
-    transactions: [],
-    blocks: [],
-    workSchedules: [],
-    appSettings: null,
-    staffQueue: null,
-    clients: [],
-}
-
-const collectionsToListen = [
-  { key: 'services', ref: collection(db, 'services') },
-  { key: 'roles', ref: collection(db, 'roles') },
-  { key: 'funcionarios', ref: collection(db, 'funcionarios') },
-  { key: 'confirmedAppointments', ref: collection(db, 'confirmedAppointments') },
-  { key: 'pendingAppointments', ref: collection(db, 'pendingAppointments') },
-  { key: 'transactions', ref: collection(db, 'transactions') },
-  { key: 'blocks', ref: collection(db, 'blocks') },
-  { key: 'workSchedules', ref: collection(db, 'workSchedules') },
-  { key: 'clients', ref: collection(db, 'clients') },
-  { key: 'appSettings', ref: doc(db, 'appState', 'settings'), isDoc: true },
-  { key: 'staffQueue', ref: doc(db, 'appState', 'staffQueue'), isDoc: true },
+const API_ENDPOINTS = [
+    'services', 'roles', 'funcionarios', 'confirmedAppointments', 
+    'pendingAppointments', 'transactions', 'blocks', 'workSchedules', 
+    'clients', 'appSettings', 'staffQueue'
 ];
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -71,69 +51,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Omit<DataContextType, 'loading' | 'fetchData'>>(initialState);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(() => {
-    // This function is now a no-op because onSnapshot handles initial fetching.
-    // It's kept for any legacy components that might still call it on an action.
-  }, []);
+  const fetchData = useCallback(async () => {
+    if (!user) {
+        setData(initialState);
+        setLoading(false);
+        return;
+    }
+    setLoading(true);
+    try {
+      const responses = await Promise.all(
+          API_ENDPOINTS.map(endpoint => 
+              fetch(`/api/${endpoint.toLowerCase()}`).then(res => res.json())
+          )
+      );
+      
+      const fetchedData = API_ENDPOINTS.reduce((acc, endpoint, index) => {
+        const key = endpoint as keyof typeof initialState;
+        // Handle single object responses vs array responses
+        acc[key] = responses[index].data || responses[index] || (initialState[key] === null ? null : []);
+        return acc;
+      }, {} as any);
 
+      setData(fetchedData);
+
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      setData(initialState);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (authLoading) {
-      setLoading(true);
-      return;
+    if (!authLoading) {
+        fetchData();
     }
-
-    if (!user) {
-      setLoading(false);
-      setData(initialState);
-      return;
-    }
-    
-    setLoading(true);
-
-    const dataListeners = collectionsToListen;
-    
-    let loadedCount = 0;
-    const initialLoadFlags: { [key: string]: boolean } = {};
-    const unsubscribes: (() => void)[] = [];
-
-    const checkAllDataLoaded = () => {
-        loadedCount++;
-        if (loadedCount >= dataListeners.length) {
-            setLoading(false);
-        }
-    };
-    
-    dataListeners.forEach(({ key, ref, isDoc }) => {
-      const unsub = onSnapshot(ref as any, (snapshot: DocumentData | QuerySnapshot) => {
-        let value: any;
-        if(isDoc) {
-           const docData = snapshot.data();
-            value = docData ? { ...docData, id: snapshot.id } : null;
-        } else {
-            value = snapshot.docs.map((doc: DocumentData) => ({ ...doc.data(), id: doc.id }));
-        }
-
-        setData(prevData => ({ ...prevData, [key]: value }));
-
-        if (!initialLoadFlags[key]) {
-          initialLoadFlags[key] = true;
-          checkAllDataLoaded();
-        }
-      }, (error) => {
-        console.error(`Error fetching ${key}: `, error);
-        if (!initialLoadFlags[key]) {
-          initialLoadFlags[key] = true;
-          const defaultValue = isDoc ? null : [];
-          setData(prevData => ({ ...prevData, [key]: defaultValue }));
-          checkAllDataLoaded();
-        }
-      });
-      unsubscribes.push(unsub);
-    });
-    
-    return () => unsubscribes.forEach(unsub => unsub());
-  }, [user, authLoading]);
+  }, [user, authLoading, fetchData]);
 
   const value = { ...data, loading, fetchData };
 

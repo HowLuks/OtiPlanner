@@ -2,8 +2,8 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
+import pool from '@/lib/db';
+import { ResultSetHeader } from 'mysql2';
 import { Client } from '@/lib/data';
 import { z } from 'zod';
 
@@ -28,13 +28,17 @@ export async function POST(request: Request) {
       name,
       whatsapp,
     };
-
-    await setDoc(doc(db, 'clients', newClientId), newClient);
+    
+    await pool.query("INSERT INTO clientes (id, name, whatsapp) VALUES (?, ?, ?)", [newClientId, name, whatsapp]);
 
     return NextResponse.json({ success: true, client: newClient }, { status: 201 });
   } catch (error) {
     console.error("Erro ao criar cliente:", error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    // Check for unique constraint violation
+    if (error instanceof Error && 'code' in error && error.code === 'ER_DUP_ENTRY') {
+        return NextResponse.json({ success: false, error: 'Este número de WhatsApp já está cadastrado.' }, { status: 409 });
+    }
     return NextResponse.json({ success: false, error: 'Server error: ' + errorMessage }, { status: 500 });
   }
 }
@@ -47,8 +51,11 @@ export async function DELETE(request: Request) {
         if (!id) {
             return NextResponse.json({ success: false, error: 'Client ID is required' }, { status: 400 });
         }
-
-        await deleteDoc(doc(db, 'clients', id));
+        
+        // Note: You might want to handle foreign key constraints. 
+        // E.g., decide what happens to appointments of a deleted client.
+        // The current database schema might not allow deletion if the client has appointments.
+        await pool.query("DELETE FROM clientes WHERE id = ?", [id]);
 
         return NextResponse.json({ success: true, message: 'Cliente deletado com sucesso.' });
     } catch (error) {

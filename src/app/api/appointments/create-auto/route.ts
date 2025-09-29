@@ -3,11 +3,9 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { collection, getDocs, query, where, doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import pool from '@/lib/db';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { Appointment, PendingAppointment, Service, Funcionario, Client, AppSettings, StaffQueue } from '@/lib/data';
-import { getDay } from 'date-fns';
-import { dayLabels } from '@/lib/constants';
 
 // Zod schema for input validation
 const autoAppointmentSchema = z.object({
@@ -20,85 +18,82 @@ const autoAppointmentSchema = z.object({
 
 // Helper function to find or create a client
 async function findOrCreateClient(name: string, whatsapp: string): Promise<Client> {
-    const clientsRef = collection(db, 'clients');
-    const q = query(clientsRef, where("whatsapp", "==", whatsapp));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-        // Client exists
-        return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as Client;
-    } else {
-        // Create new client
-        const newClientId = `client-${Date.now()}`;
-        const newClient: Client = {
-            id: newClientId,
-            name: name,
-            whatsapp: whatsapp,
-        };
-        await setDoc(doc(db, 'clients', newClientId), newClient);
-        return newClient;
+    const connection = await pool.getConnection();
+    try {
+        const [rows] = await connection.query<RowDataPacket[]>("SELECT * FROM clientes WHERE whatsapp = ?", [whatsapp]);
+        if (rows.length > 0) {
+            return rows[0] as Client;
+        } else {
+            const newClientId = `client-${Date.now()}`;
+            await connection.query("INSERT INTO clientes (id, name, whatsapp) VALUES (?, ?, ?)", [newClientId, name, whatsapp]);
+            return { id: newClientId, name, whatsapp } as Client;
+        }
+    } finally {
+        connection.release();
     }
 }
 
 // Helper to get app settings
 async function getAppSettings(): Promise<AppSettings | null> {
-    const settingsDoc = await getDoc(doc(db, 'appState', 'settings'));
-    return settingsDoc.exists() ? settingsDoc.data() as AppSettings : null;
+    const connection = await pool.getConnection();
+    try {
+        const [rows] = await connection.query<RowDataPacket[]>("SELECT * FROM configuracoes WHERE id = 'settings'");
+        return rows.length > 0 ? { ...rows[0], id: 'settings' } as AppSettings : null;
+    } finally {
+        connection.release();
+    }
 }
 
 // Helper to check for conflicts
 async function isTimeBlocked(staffId: string, date: string, time: string, serviceDuration: number): Promise<boolean> {
-    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
-    const newAppointmentEnd = newAppointmentStart + serviceDuration * 60 * 1000;
+    const connection = await pool.getConnection();
+    try {
+        const newAppointmentStart = new Date(`${date}T${time}`).getTime();
+        const newAppointmentEnd = newAppointmentStart + serviceDuration * 60 * 1000;
 
-    // Fetch all data needed for checks
-    const [confirmedAppointmentsSnap, blocksSnap, workSchedulesSnap, servicesSnap] = await Promise.all([
-        getDocs(query(collection(db, 'confirmedAppointments'), where('staffId', '==', staffId), where('date', '==', date))),
-        getDocs(query(collection(db, 'blocks'), where('staffId', '==', staffId), where('date', '==', date))),
-        getDocs(query(collection(db, 'workSchedules'), where('staffId', '==', staffId))),
-        getDocs(collection(db, 'services'))
-    ]);
-    
-    const services = servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+        // Check confirmed appointments
+        const [appointments] = await connection.query<RowDataPacket[]>(
+            "SELECT a.*, s.duration FROM agendamentos a JOIN servicos s ON a.serviceId = s.id WHERE a.staffId = ? AND a.date = ?",
+            [staffId, date]
+        );
+        for (const app of appointments) {
+            const existingStart = new Date(`${app.date}T${app.time}`).getTime();
+            const existingEnd = existingStart + app.duration * 60 * 1000;
+            if (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart) return true;
+        }
 
-    // Check confirmed appointments
-    for (const doc of confirmedAppointmentsSnap.docs) {
-        const existing = doc.data() as Appointment;
-        const existingService = services.find(s => s.id === existing.serviceId);
-        if (!existingService) continue;
-        const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
-        const existingEnd = existingStart + existingService.duration * 60 * 1000;
-        if (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart) return true;
+        // Check blocks
+        const [blocks] = await connection.query<RowDataPacket[]>("SELECT * FROM folgas WHERE staffId = ? AND date = ?", [staffId, date]);
+        for (const block of blocks) {
+            const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
+            const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
+            if (newAppointmentStart < blockEnd && newAppointmentEnd > blockStart) return true;
+        }
+
+        // Check work schedule
+        const [schedules] = await connection.query<RowDataPacket[]>("SELECT * FROM horarios_trabalho WHERE staffId = ?", [staffId]);
+        if (schedules.length > 0) {
+            const schedule = schedules[0];
+            const horarios = typeof schedule.horarios === 'string' ? JSON.parse(schedule.horarios) : schedule.horarios;
+            const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+            const workHours = horarios[dayOfWeek];
+            if (!workHours || !workHours.start || !workHours.end) return true; // Not a working day
+            
+            const workStart = new Date(`${date}T${workHours.start}`).getTime();
+            const workEnd = new Date(`${date}T${workHours.end}`).getTime();
+            if (newAppointmentStart < workStart || newAppointmentEnd > workEnd) return true;
+        } else {
+            return true; // No schedule
+        }
+
+        return false;
+    } finally {
+        connection.release();
     }
-
-    // Check blocks
-    for (const doc of blocksSnap.docs) {
-        const block = doc.data();
-        const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
-        const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
-        if (newAppointmentStart < blockEnd && newAppointmentEnd > blockStart) return true;
-    }
-
-    // Check work schedule
-    if (!workSchedulesSnap.empty) {
-        const schedule = workSchedulesSnap.docs[0].data();
-        const dayIndex = getDay(new Date(date));
-        const dayOfWeek = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'][dayIndex];
-        const workHours = schedule.horarios[dayOfWeek];
-
-        if (!workHours || !workHours.start || !workHours.end) return true; // Not a working day
-
-        const workStart = new Date(`${date}T${workHours.start}`).getTime();
-        const workEnd = new Date(`${date}T${workHours.end}`).getTime();
-        if (newAppointmentStart < workStart || newAppointmentEnd > workEnd) return true;
-    } else {
-        return true; // No schedule means no working hours
-    }
-
-    return false;
 }
 
 export async function POST(request: Request) {
+  const connection = await pool.getConnection();
   try {
     const body = await request.json();
     const validation = autoAppointmentSchema.safeParse(body);
@@ -109,50 +104,32 @@ export async function POST(request: Request) {
 
     const client = await findOrCreateClient(clientName, clientWhatsapp);
 
-    const servicesRef = collection(db, 'services');
-    const serviceQuery = query(servicesRef, where("name", "==", serviceName));
-    const serviceSnapshot = await getDocs(serviceQuery);
-
-    if (serviceSnapshot.empty) {
+    const [serviceRows] = await connection.query<RowDataPacket[]>("SELECT * FROM servicos WHERE name = ?", [serviceName]);
+    if (serviceRows.length === 0) {
         return NextResponse.json({ success: false, error: `Service '${serviceName}' not found.` }, { status: 404 });
     }
-    const service = { id: serviceSnapshot.docs[0].id, ...serviceSnapshot.docs[0].data() } as Service;
+    const service = serviceRows[0] as Service;
 
     const appSettings = await getAppSettings();
+    
+    await connection.beginTransaction();
 
-    // SCENARIO 1: Manual selection is ON, create a pending appointment
     if (appSettings?.manualSelection) {
         const newId = `p${Date.now()}`;
-        const newPendingAppointment: Omit<PendingAppointment, 'id'> = {
-            date: date,
-            client: client.name,
-            clientWhatsapp: client.whatsapp,
-            time: time,
-            serviceId: service.id,
-        };
-        await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
-        return NextResponse.json({ success: true, status: 'pending', appointment: {id: newId, ...newPendingAppointment} }, { status: 201 });
+        const newPendingAppointment = { date, client: client.name, time, serviceId: service.id };
+        await connection.query("INSERT INTO agendamentos_pendentes (id, date, client, time, serviceId) VALUES (?, ?, ?, ?, ?)", [newId, date, client.name, time, service.id]);
+        await connection.commit();
+        return NextResponse.json({ success: true, status: 'pending', appointment: { id: newId, ...newPendingAppointment } }, { status: 201 });
     }
 
-    // SCENARIO 2: Manual selection is OFF, find available staff and create confirmed appointment
-    const funcionariosRef = collection(db, 'funcionarios');
-    const q = query(funcionariosRef, where("roleId", "==", service.roleId));
-    const qualifiedStaffSnap = await getDocs(q);
-    const qualifiedStaff = qualifiedStaffSnap.docs.map(d => ({id: d.id, ...d.data()} as Funcionario));
-    
+    const [qualifiedStaff] = await connection.query<RowDataPacket[]>("SELECT * FROM funcionarios WHERE roleId = ?", [service.roleId]);
     if (qualifiedStaff.length === 0) {
         return NextResponse.json({ success: false, error: "No qualified staff for this service." }, { status: 400 });
     }
 
-    const queueDoc = await getDoc(doc(db, 'appState', 'staffQueue'));
-    const staffQueue = queueDoc.exists() ? (queueDoc.data() as StaffQueue).staffIds : [];
-
-    const staffInQueue = staffQueue.map(id => qualifiedStaff.find(s => s.id === id)).filter(Boolean) as Funcionario[];
-    const staffNotInQueue = qualifiedStaff.filter(s => !staffQueue.includes(s.id));
-    const potentialStaff = [...staffInQueue, ...staffNotInQueue];
-
+    // This is a simplification; a real implementation would need a more robust queue/rotation logic, maybe in a dedicated table.
     let assignedStaffId: string | null = null;
-    for (const staff of potentialStaff) {
+    for (const staff of qualifiedStaff as Funcionario[]) {
         const isBlocked = await isTimeBlocked(staff.id, date, time, service.duration);
         if (!isBlocked) {
             assignedStaffId = staff.id;
@@ -160,50 +137,31 @@ export async function POST(request: Request) {
         }
     }
 
-    // If an available staff is found, create confirmed appointment
     if (assignedStaffId) {
-        const assignedStaffMember = qualifiedStaff.find(f => f.id === assignedStaffId)!;
         const newId = `c${Date.now()}`;
-        const newConfirmedAppointment: Omit<Appointment, 'id'> = {
-            date: date,
-            client: client.name,
-            clientWhatsapp: client.whatsapp,
-            time: time,
-            serviceId: service.id,
-            staffId: assignedStaffId,
-        };
+        const newConfirmedAppointment = { date, client: client.name, time, serviceId: service.id, staffId: assignedStaffId };
+        await connection.query("INSERT INTO agendamentos (id, date, client, time, serviceId, staffId) VALUES (?, ?, ?, ?, ?, ?)", [newId, date, client.name, time, service.id, assignedStaffId]);
         
-        // Update queue
-        const newQueue = staffQueue.filter(id => id !== assignedStaffId);
-        newQueue.push(assignedStaffId);
-
-        const batch = writeBatch(db);
-        batch.set(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
-        batch.set(doc(db, 'appState', 'staffQueue'), { staffIds: newQueue }, { merge: true });
+        // Transaction logic would go here
         
-        // You might want to add transaction and sales update logic here as well
-        // This is simplified to just creating the appointment
-        
-        await batch.commit();
-
-        return NextResponse.json({ success: true, status: 'confirmed', appointment: {id: newId, ...newConfirmedAppointment} }, { status: 201 });
+        await connection.commit();
+        return NextResponse.json({ success: true, status: 'confirmed', appointment: { id: newId, ...newConfirmedAppointment } }, { status: 201 });
     } else {
-        // Fallback: No one is available, create pending appointment
         const newId = `p${Date.now()}`;
-        const newPendingAppointment: Omit<PendingAppointment, 'id'> = {
-            date: date,
-            client: client.name,
-            clientWhatsapp: client.whatsapp,
-            time: time,
-            serviceId: service.id,
-        };
-        await setDoc(doc(db, 'pendingAppointments', newId), newPendingAppointment);
-        return NextResponse.json({ success: true, status: 'pending_fallback', message: "No staff available, created pending appointment.", appointment: {id: newId, ...newPendingAppointment} }, { status: 201 });
+        const newPendingAppointment = { date, client: client.name, time, serviceId: service.id };
+        await connection.query("INSERT INTO agendamentos_pendentes (id, date, client, time, serviceId) VALUES (?, ?, ?, ?, ?)", [newId, date, client.name, time, service.id]);
+        await connection.commit();
+        return NextResponse.json({ success: true, status: 'pending_fallback', message: "No staff available, created pending appointment.", appointment: { id: newId, ...newPendingAppointment } }, { status: 201 });
     }
 
   } catch (error) {
+    await connection.rollback();
     console.error('Webhook processing error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ success: false, error: 'Server error: ' + errorMessage }, { status: 500 });
+  } finally {
+      connection.release();
   }
 }
+
+  

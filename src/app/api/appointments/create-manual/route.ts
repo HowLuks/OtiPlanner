@@ -3,10 +3,9 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { collection, getDocs, query, where, doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { Appointment, Service, Funcionario, Client } from '@/lib/data';
-import { getDay } from 'date-fns';
+import pool from '@/lib/db';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { Client, Service, Funcionario, Appointment } from '@/lib/data';
 
 // Zod schema for input validation
 const manualAppointmentSchema = z.object({
@@ -20,76 +19,73 @@ const manualAppointmentSchema = z.object({
 
 // Helper function to find or create a client
 async function findOrCreateClient(name: string, whatsapp: string): Promise<Client> {
-    const clientsRef = collection(db, 'clients');
-    const q = query(clientsRef, where("whatsapp", "==", whatsapp));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-        return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as Client;
-    } else {
-        const newClientId = `client-${Date.now()}`;
-        const newClient: Client = {
-            id: newClientId,
-            name: name,
-            whatsapp: whatsapp,
-        };
-        await setDoc(doc(db, 'clients', newClientId), newClient);
-        return newClient;
+    const connection = await pool.getConnection();
+    try {
+        const [rows] = await connection.query<RowDataPacket[]>("SELECT * FROM clientes WHERE whatsapp = ?", [whatsapp]);
+        if (rows.length > 0) {
+            return rows[0] as Client;
+        } else {
+            const newClientId = `client-${Date.now()}`;
+            await connection.query("INSERT INTO clientes (id, name, whatsapp) VALUES (?, ?, ?)", [newClientId, name, whatsapp]);
+            return { id: newClientId, name, whatsapp } as Client;
+        }
+    } finally {
+        connection.release();
     }
 }
 
-// Helper function to check for conflicts, returns a reason string if blocked
+// Helper to check for conflicts
 async function getConflictReason(staffId: string, date: string, time: string, serviceDuration: number): Promise<string | null> {
-    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
-    const newAppointmentEnd = newAppointmentStart + serviceDuration * 60 * 1000;
+    const connection = await pool.getConnection();
+    try {
+        const newAppointmentStart = new Date(`${date}T${time}`).getTime();
+        const newAppointmentEnd = newAppointmentStart + serviceDuration * 60 * 1000;
 
-    const [confirmedAppointmentsSnap, blocksSnap, workSchedulesSnap, servicesSnap] = await Promise.all([
-        getDocs(query(collection(db, 'confirmedAppointments'), where('staffId', '==', staffId), where('date', '==', date))),
-        getDocs(query(collection(db, 'blocks'), where('staffId', '==', staffId), where('date', '==', date))),
-        getDocs(query(collection(db, 'workSchedules'), where('staffId', '==', staffId))),
-        getDocs(collection(db, 'services'))
-    ]);
+        // Check confirmed appointments
+        const [appointments] = await connection.query<RowDataPacket[]>(
+            "SELECT a.*, s.duration FROM agendamentos a JOIN servicos s ON a.serviceId = s.id WHERE a.staffId = ? AND a.date = ?",
+            [staffId, date]
+        );
+        for (const app of appointments) {
+            const existingStart = new Date(`${app.date}T${app.time}`).getTime();
+            const existingEnd = existingStart + app.duration * 60 * 1000;
+            if (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart) return 'Staff member has a conflicting appointment.';
+        }
 
-    const services = servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
-    
-    // Check confirmed appointments
-    for (const doc of confirmedAppointmentsSnap.docs) {
-        const existing = doc.data() as Appointment;
-        const existingService = services.find(s => s.id === existing.serviceId);
-        if (!existingService) continue;
-        const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
-        const existingEnd = existingStart + existingService.duration * 60 * 1000;
-        if (newAppointmentStart < existingEnd && newAppointmentEnd > existingStart) return 'Staff member has a conflicting appointment.';
+        // Check blocks
+        const [blocks] = await connection.query<RowDataPacket[]>("SELECT * FROM folgas WHERE staffId = ? AND date = ?", [staffId, date]);
+        for (const block of blocks) {
+            const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
+            const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
+            if (newAppointmentStart < blockEnd && newAppointmentEnd > blockStart) return 'Staff member has a time block at this hour.';
+        }
+
+        // Check work schedule
+        const [schedules] = await connection.query<RowDataPacket[]>("SELECT * FROM horarios_trabalho WHERE staffId = ?", [staffId]);
+        if (schedules.length > 0) {
+            const schedule = schedules[0];
+            const horarios = typeof schedule.horarios === 'string' ? JSON.parse(schedule.horarios) : schedule.horarios;
+            const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+            const workHours = horarios[dayOfWeek];
+
+            if (!workHours || !workHours.start || !workHours.end) return 'Staff member does not work on this day.';
+            
+            const workStart = new Date(`${date}T${workHours.start}`).getTime();
+            const workEnd = new Date(`${date}T${workHours.end}`).getTime();
+            if (newAppointmentStart < workStart || newAppointmentEnd > workEnd) return `Appointment is outside of working hours (${workHours.start} - ${workHours.end}).`;
+        } else {
+            return 'Staff member has no defined work schedule.';
+        }
+
+        return null;
+    } finally {
+        connection.release();
     }
-
-    // Check blocks
-    for (const doc of blocksSnap.docs) {
-        const block = doc.data();
-        const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
-        const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
-        if (newAppointmentStart < blockEnd && newAppointmentEnd > blockStart) return 'Staff member has a time block at this hour.';
-    }
-
-    // Check work schedule
-    if (!workSchedulesSnap.empty) {
-        const schedule = workSchedulesSnap.docs[0].data();
-        const dayIndex = getDay(new Date(date));
-        const dayOfWeek = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'][dayIndex];
-        const workHours = schedule.horarios[dayOfWeek];
-
-        if (!workHours || !workHours.start || !workHours.end) return 'Staff member does not work on this day.';
-        
-        const workStart = new Date(`${date}T${workHours.start}`).getTime();
-        const workEnd = new Date(`${date}T${workHours.end}`).getTime();
-        if (newAppointmentStart < workStart || newAppointmentEnd > workEnd) return `Appointment is outside of working hours (${workHours.start} - ${workHours.end}).`;
-    } else {
-        return 'Staff member has no defined work schedule.';
-    }
-
-    return null;
 }
+
 
 export async function POST(request: Request) {
+  const connection = await pool.getConnection();
   try {
     const body = await request.json();
     const validation = manualAppointmentSchema.safeParse(body);
@@ -99,19 +95,17 @@ export async function POST(request: Request) {
     const { clientName, clientWhatsapp, time, date, serviceName, staffId } = validation.data;
 
     // Validate staff and service exist
-    const [staffDoc, serviceQuerySnap] = await Promise.all([
-        getDoc(doc(db, 'funcionarios', staffId)),
-        getDocs(query(collection(db, 'services'), where("name", "==", serviceName)))
-    ]);
+    const [staffRows] = await connection.query<RowDataPacket[]>("SELECT * FROM funcionarios WHERE id = ?", [staffId]);
+    const [serviceRows] = await connection.query<RowDataPacket[]>("SELECT * FROM servicos WHERE name = ?", [serviceName]);
 
-    if (!staffDoc.exists()) {
+    if (staffRows.length === 0) {
         return NextResponse.json({ success: false, error: `Staff with ID '${staffId}' not found.` }, { status: 404 });
     }
-    if (serviceQuerySnap.empty) {
+    if (serviceRows.length === 0) {
         return NextResponse.json({ success: false, error: `Service '${serviceName}' not found.` }, { status: 404 });
     }
-    const service = { id: serviceQuerySnap.docs[0].id, ...serviceQuerySnap.docs[0].data() } as Service;
-    const staff = { id: staffDoc.id, ...staffDoc.data() } as Funcionario;
+    const service = serviceRows[0] as Service;
+    const staff = staffRows[0] as Funcionario;
 
     // Check if staff is qualified
     if (staff.roleId !== service.roleId) {
@@ -126,24 +120,27 @@ export async function POST(request: Request) {
     const client = await findOrCreateClient(clientName, clientWhatsapp);
     
     const newId = `c${Date.now()}`;
-    const newConfirmedAppointment: Omit<Appointment, 'id'> = {
-        date: date,
-        client: client.name,
-        clientWhatsapp: client.whatsapp,
-        time: time,
-        serviceId: service.id,
-        staffId: staffId,
-    };
     
-    // Here you would also add the logic to create a transaction and update sales figures
-    // This is simplified to just creating the appointment document
-    await setDoc(doc(db, 'confirmedAppointments', newId), newConfirmedAppointment);
+    await connection.beginTransaction();
+    
+    await connection.query("INSERT INTO agendamentos (id, date, client, time, serviceId, staffId) VALUES (?, ?, ?, ?, ?, ?)", [newId, date, client.name, time, service.id, staffId]);
 
-    return NextResponse.json({ success: true, status: 'confirmed', appointment: {id: newId, ...newConfirmedAppointment} }, { status: 201 });
+    // Here you would also add the logic to create a transaction and update sales figures
+    
+    await connection.commit();
+    
+    const newConfirmedAppointment = { id: newId, date, client: client.name, time, serviceId: service.id, staffId };
+
+    return NextResponse.json({ success: true, status: 'confirmed', appointment: newConfirmedAppointment }, { status: 201 });
 
   } catch (error) {
+    await connection.rollback();
     console.error('Webhook processing error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ success: false, error: 'Server error: ' + errorMessage }, { status: 500 });
+  } finally {
+      connection.release();
   }
 }
+
+  

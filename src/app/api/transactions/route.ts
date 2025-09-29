@@ -2,8 +2,8 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { doc, setDoc, deleteDoc, writeBatch, getDoc } from 'firebase/firestore';
+import pool from '@/lib/db';
+import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { Transaction } from '@/lib/data';
 import { z } from 'zod';
 
@@ -12,12 +12,13 @@ const transactionSchema = z.object({
   date: z.string(),
   description: z.string(),
   type: z.enum(['Entrada', 'Saída']),
-  value: z.string(),
+  value: z.string(), // The formatted string e.g., "R$ 150,00"
   isIncome: z.boolean(),
-  numericValue: z.number(),
+  numericValue: z.number(), // The actual number
 });
 
 export async function POST(request: Request) {
+    const connection = await pool.getConnection();
     try {
         const body = await request.json();
         const validation = transactionSchema.safeParse(body);
@@ -25,44 +26,35 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: validation.error.flatten() }, { status: 400 });
         }
         
-        const { id, numericValue, ...transactionData } = validation.data;
+        const { id, date, description, type, numericValue } = validation.data;
         const transactionId = id || `trans-${Date.now()}`;
         
-        const batch = writeBatch(db);
-        const transactionRef = doc(db, 'transactions', transactionId);
-        const saldoRef = doc(db, 'appState', 'saldoEmCaixa');
-
-        const saldoSnap = await getDoc(saldoRef);
-        let saldoAtual = saldoSnap.exists() ? saldoSnap.data().value : 0;
-        
-        let newSaldo = saldoAtual;
+        await connection.beginTransaction();
 
         if (id) { // Editing existing transaction
-            const originalTransactionSnap = await getDoc(transactionRef);
-            if (originalTransactionSnap.exists()) {
-                const originalTransaction = originalTransactionSnap.data() as Transaction;
-                const originalValue = parseFloat(originalTransaction.value.replace(/[^0-9,.]/g, '').replace('.', '').replace(',', '.'));
-                newSaldo -= originalTransaction.isIncome ? originalValue : -originalValue;
-            }
+            await connection.query("UPDATE financeiro SET data = ?, description = ?, valor = ?, tipo = ? WHERE id = ?", 
+                [date, description, numericValue, type === 'Entrada' ? 'entrada' : 'saida', id]);
+        } else { // Creating new transaction
+            await connection.query("INSERT INTO financeiro (id, data, description, valor, tipo) VALUES (?, ?, ?, ?, ?)", 
+                [transactionId, date, description, numericValue, type === 'Entrada' ? 'entrada' : 'saida']);
         }
         
-        newSaldo += transactionData.isIncome ? numericValue : -numericValue;
-        
-        batch.set(transactionRef, {id: transactionId, ...transactionData}, { merge: true });
-        batch.set(saldoRef, { value: newSaldo });
-        
-        await batch.commit();
+        await connection.commit();
 
         return NextResponse.json({ success: true, transactionId }, { status: 201 });
 
     } catch (error) {
+        await connection.rollback();
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         return NextResponse.json({ success: false, error: 'Server error: ' + errorMessage }, { status: 500 });
+    } finally {
+        connection.release();
     }
 }
 
 
 export async function DELETE(request: Request) {
+    const connection = await pool.getConnection();
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -71,29 +63,14 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ success: false, error: 'Transaction ID is required' }, { status: 400 });
         }
         
-        const transactionRef = doc(db, 'transactions', id);
-        const transactionSnap = await getDoc(transactionRef);
-
-        if (!transactionSnap.exists()) {
-            return NextResponse.json({ success: false, error: 'Transação não encontrada.' }, { status: 404 });
-        }
-        const transaction = transactionSnap.data() as Transaction;
-
-        const batch = writeBatch(db);
-        const saldoRef = doc(db, 'appState', 'saldoEmCaixa');
-        const saldoSnap = await getDoc(saldoRef);
-        const saldoAtual = saldoSnap.exists() ? saldoSnap.data().value : 0;
-
-        const value = parseFloat(transaction.value.replace(/[^0-9,.]/g, '').replace('.', '').replace(',', '.'));
-        const newSaldo = saldoAtual - (transaction.isIncome ? value : -value);
-
-        batch.delete(transactionRef);
-        batch.set(saldoRef, { value: newSaldo });
-        await batch.commit();
+        // We now allow deleting any transaction, as requested.
+        await connection.query("DELETE FROM financeiro WHERE id = ?", [id]);
 
         return NextResponse.json({ success: true, message: 'Transação deletada com sucesso.' });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         return NextResponse.json({ success: false, error: 'Server error: ' + errorMessage }, { status: 500 });
+    } finally {
+        connection.release();
     }
 }

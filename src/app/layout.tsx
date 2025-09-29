@@ -19,16 +19,13 @@ function AppContent({ children }: { children: React.ReactNode }) {
     setIsClient(true);
   }, []);
 
+  // Show a loading skeleton while auth or initial data is loading.
   const loading = authLoading || (user && dataLoading);
 
   useEffect(() => {
-    if (!isClient) return;
+    if (loading || !isClient) return;
 
     const isAuthPage = pathname === '/login';
-    
-    if (authLoading) {
-      return;
-    }
 
     if (!user && !isAuthPage) {
       router.push('/login');
@@ -38,9 +35,10 @@ function AppContent({ children }: { children: React.ReactNode }) {
       router.push('/dashboard');
     }
 
-  }, [user, authLoading, router, pathname, isClient]);
+  }, [user, loading, router, pathname, isClient]);
 
-  if (loading || !isClient) {
+  // If we're on the server or still loading, show a full-page skeleton.
+  if (!isClient || loading) {
     return (
       <div className="flex flex-col h-screen">
         <header className="p-4 border-b flex items-center justify-between">
@@ -56,7 +54,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Allow access to login page if not authenticated
+  // Allow rendering the login page if the user is not authenticated.
   if (!user && pathname === '/login') {
     return (
         <>
@@ -66,29 +64,29 @@ function AppContent({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // If user is not logged in and not on login page, we show a loader while redirecting
-  if (!user) {
-     return (
-       <div className="flex flex-col h-screen">
-         <header className="p-4 border-b flex items-center justify-between">
-           <Skeleton className="h-8 w-48" />
-           <div className="flex items-center gap-4">
-             <Skeleton className="h-10 w-10 rounded-full" />
-           </div>
-         </header>
-         <main className="flex-1 p-8">
-           <Skeleton className="h-full w-full" />
-         </main>
-       </div>
+  // If the user is authenticated, render the main app content.
+  if (user) {
+    return (
+      <>
+        {children}
+        <Toaster />
+      </>
     );
   }
 
-
+  // Fallback to a loader, primarily for the brief moment during redirection.
   return (
-    <>
-      {children}
-      <Toaster />
-    </>
+    <div className="flex flex-col h-screen">
+      <header className="p-4 border-b flex items-center justify-between">
+        <Skeleton className="h-8 w-48" />
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-full" />
+        </div>
+      </header>
+      <main className="flex-1 p-8">
+        <Skeleton className="h-full w-full" />
+      </main>
+    </div>
   );
 }
 

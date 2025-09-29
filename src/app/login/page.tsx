@@ -2,14 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, AuthError } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { auth } from '@/lib/firebase';
 import { Logo } from '@/components/icons';
 
 export default function LoginPage() {
@@ -19,67 +17,36 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleAuthError = (error: AuthError) => {
-    console.error(error.code, error.message);
-    let description = 'Ocorreu um erro inesperado.';
-    switch (error.code) {
-      case 'auth/invalid-email':
-        description = 'O endereço de e-mail não é válido.';
-        break;
-      case 'auth/user-disabled':
-        description = 'Este usuário foi desativado.';
-        break;
-      case 'auth/user-not-found':
-      case 'auth/wrong-password':
-      case 'auth/invalid-credential':
-        description = 'E-mail ou senha incorretos.';
-        break;
-      case 'auth/email-already-in-use':
-        description = 'Este e-mail já está em uso por outra conta.';
-        break;
-      case 'auth/weak-password':
-        description = 'A senha é muito fraca. Tente uma mais forte.';
-        break;
-       default:
-         description = `Erro: ${error.message}`;
-    }
-     toast({
-        variant: 'destructive',
-        title: 'Erro de Autenticação',
-        description,
-      });
+  const handleAuthError = (error: Error) => {
+    console.error(error);
+    toast({
+      variant: 'destructive',
+      title: 'Erro de Autenticação',
+      description: error.message || 'Ocorreu um erro inesperado.',
+    });
   };
 
   const handleSignUp = async () => {
     setLoading(true);
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      toast({
-        title: 'Sucesso!',
-        description: 'Conta criada. Redirecionando para o dashboard...',
-      });
-      // The redirect is handled by the layout component
-    } catch (error) {
-      handleAuthError(error as AuthError);
-    } finally {
-      setLoading(false);
-    }
+    // TODO: Implementar lógica de criação de conta com a nova API
+    toast({
+        title: 'Funcionalidade em desenvolvimento',
+        description: 'A criação de conta será implementada com o novo sistema de autenticação.'
+    });
+    setLoading(false);
   };
 
   const handleSignIn = async () => {
     setLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-       toast({
-        title: 'Login bem-sucedido!',
-        description: 'Redirecionando para o dashboard...',
-      });
-      // The redirect is handled by the layout component
-    } catch (error) {
-      handleAuthError(error as AuthError);
-    } finally {
-      setLoading(false);
-    }
+    // TODO: Implementar lógica de login com a nova API
+    toast({
+        title: 'Funcionalidade em desenvolvimento',
+        description: 'O login será implementado com o novo sistema de autenticação.'
+    });
+    // Simulação de login
+    setTimeout(() => {
+        router.push('/dashboard');
+    }, 1000);
   };
 
   return (
