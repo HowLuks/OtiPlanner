@@ -144,7 +144,10 @@ export default function Home() {
 
 
   const availableStaff = useMemo(() => {
-    if (!selectedService || !appointmentDate || !appointmentTime) {
+    if (!selectedService) {
+        return [];
+    }
+    if (!appointmentDate || !appointmentTime) {
       return qualifiedStaff;
     }
     return qualifiedStaff.filter(staff => 
