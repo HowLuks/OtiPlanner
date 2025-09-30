@@ -71,7 +71,7 @@ async function isTimeBlocked(staffId: string, date: string, time: string, servic
         }
 
         // Check work schedule
-        const [schedules] = await connection.query<RowDataPacket[]>("SELECT * FROM horarios_trabalho WHERE staffId = ?", [staffId]);
+        const [schedules] = await connection.query<RowDataPacket[]>("SELECT * FROM carga_horaria WHERE staffId = ?", [staffId]);
         if (schedules.length > 0) {
             const schedule = schedules[0];
             const horarios = typeof schedule.horarios === 'string' ? JSON.parse(schedule.horarios) : schedule.horarios;

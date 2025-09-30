@@ -20,11 +20,11 @@ export async function POST(request: Request) {
 
     if (type === 'schedule') {
         // Upsert logic for schedule
-        const [rows] = await connection.query<RowDataPacket[]>("SELECT id FROM horarios_trabalho WHERE staffId = ?", [payload.id]);
+        const [rows] = await connection.query<RowDataPacket[]>("SELECT id FROM carga_horaria WHERE staffId = ?", [payload.staffId]);
         if (rows.length > 0) {
-            await connection.query("UPDATE horarios_trabalho SET horarios = ? WHERE staffId = ?", [JSON.stringify(payload.horarios), payload.staffId]);
+            await connection.query("UPDATE carga_horaria SET horarios = ? WHERE staffId = ?", [JSON.stringify(payload.horarios), payload.staffId]);
         } else {
-            await connection.query("INSERT INTO horarios_trabalho (id, staffId, horarios) VALUES (?, ?, ?)", [payload.id, payload.staffId, JSON.stringify(payload.horarios)]);
+            await connection.query("INSERT INTO carga_horaria (id, staffId, horarios) VALUES (?, ?, ?)", [payload.id, payload.staffId, JSON.stringify(payload.horarios)]);
         }
         return NextResponse.json({ success: true, message: 'Horário salvo com sucesso.' });
     }

@@ -9,7 +9,7 @@ import { WorkSchedule } from '@/lib/data';
 export async function GET() {
   const connection = await pool.getConnection();
   try {
-    const [rows] = await connection.query<RowDataPacket[]>("SELECT * FROM horarios_trabalho");
+    const [rows] = await connection.query<RowDataPacket[]>("SELECT * FROM carga_horaria");
     
     const schedules = rows.map(row => {
         try {
