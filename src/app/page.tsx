@@ -38,7 +38,6 @@ export default function Home() {
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [appointmentDate, setAppointmentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [appointmentTime, setAppointmentTime] = useState('');
-  const [appointmentStatus, setAppointmentStatus] = useState<'confirmed' | 'pending'>('pending');
   const [conflictError, setConflictError] = useState('');
   const { toast } = useToast();
   
@@ -69,7 +68,6 @@ export default function Home() {
     setSelectedStaffId('');
     setAppointmentDate(format(selectedDate || new Date(), 'yyyy-MM-dd'));
     setAppointmentTime('');
-    setAppointmentStatus(appSettings?.manualSelection ? 'pending' : 'confirmed');
     setConflictError('');
   };
 
@@ -128,13 +126,8 @@ export default function Home() {
       return;
     }
 
-    const effectiveStatus = appSettings?.manualSelection ? appointmentStatus : 'confirmed';
-
-    if (effectiveStatus === 'confirmed' && !appSettings?.manualSelection) {
-        // This case should be handled by the /api/appointments/create-auto webhook
-        // For simplicity in the UI, we just create a pending one that can be auto-assigned later
-        // Or we could call the auto-assign logic here.
-        // Let's call the `create-auto` webhook for consistency.
+    // If manual selection is off, use the auto-assign endpoint
+    if (!appSettings?.manualSelection) {
          try {
             const response = await fetch('/api/appointments/create-auto', {
                 method: 'POST',
@@ -164,11 +157,7 @@ export default function Home() {
     }
     
     // Manual flow (pending or confirmed with staff)
-    if (effectiveStatus === 'confirmed') {
-        if (!selectedStaffId) {
-            setConflictError('Por favor, selecione um profissional para confirmar o agendamento.');
-            return;
-        }
+    if (selectedStaffId) {
         const blockReason = isTimeBlocked(selectedStaffId, appointmentDate, appointmentTime, selectedService.duration);
         if (blockReason) {
             setConflictError(blockReason);
@@ -183,8 +172,8 @@ export default function Home() {
             appointmentDate,
             appointmentTime,
             selectedServiceId,
-            selectedStaffId: effectiveStatus === 'confirmed' ? selectedStaffId : undefined,
-            status: effectiveStatus
+            selectedStaffId: selectedStaffId || undefined,
+            status: selectedStaffId ? 'confirmed' : 'pending'
         };
         
         const response = await fetch('/api/appointments', {
@@ -205,12 +194,6 @@ export default function Home() {
         setConflictError(error instanceof Error ? error.message : "Erro desconhecido");
     }
   };
-  
-  useEffect(() => {
-    if (appSettings) {
-        setAppointmentStatus(appSettings.manualSelection ? 'pending' : 'confirmed');
-    }
-  }, [appSettings]);
 
   useEffect(() => {
     if (selectedService && filteredStaff && !filteredStaff.find(s => s.id === selectedStaffId)) {
@@ -284,45 +267,23 @@ export default function Home() {
                         </div>
                       </div>
                   
-                  {appSettings?.manualSelection && (
-                    <>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="status" className="text-right">
-                          Status
+                  {appSettings?.manualSelection ? (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="staff" className="text-right">
+                        Profissional
                         </Label>
-                        <RadioGroup value={appointmentStatus} className="col-span-3 flex gap-4" onValueChange={(value: 'confirmed' | 'pending') => setAppointmentStatus(value)}>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="pending" id="status-pending" />
-                            <Label htmlFor="status-pending">Pendente</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="confirmed" id="status-confirmed" />
-                            <Label htmlFor="status-confirmed">Confirmado</Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-
-                      {appointmentStatus === 'confirmed' && (
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="staff" className="text-right">
-                            Profissional
-                          </Label>
-                          <div className='col-span-3'>
-                            <Combobox
-                              options={staffOptions}
-                              value={selectedStaffId}
-                              onChange={setSelectedStaffId}
-                              placeholder="Selecione um profissional"
-                              searchPlaceholder="Buscar profissional..."
-                              emptyText="Nenhum profissional qualificado."
-                              />
-                          </div>
+                        <div className='col-span-3'>
+                        <Combobox
+                            options={staffOptions}
+                            value={selectedStaffId}
+                            onChange={setSelectedStaffId}
+                            placeholder="Deixar pendente"
+                            searchPlaceholder="Buscar profissional..."
+                            emptyText="Nenhum profissional qualificado."
+                            />
                         </div>
-                      )}
-                    </>
-                  )}
-                  
-                  {!appSettings?.manualSelection && (
+                    </div>
+                  ) : (
                      <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="staff" className="text-right">
                             Profissional

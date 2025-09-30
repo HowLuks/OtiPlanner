@@ -15,7 +15,6 @@ const appointmentSchema = z.object({
   appointmentTime: z.string().regex(/^\d{2}:\d{2}$/),
   selectedServiceId: z.string().min(1),
   selectedStaffId: z.string().optional(),
-  status: z.enum(['confirmed', 'pending']),
 });
 
 const confirmationSchema = z.object({
@@ -28,9 +27,11 @@ async function upsertClient(connection: any, name: string, whatsapp: string) {
     const [rows] = await connection.query<RowDataPacket[]>("SELECT id FROM clientes WHERE whatsapp = ?", [whatsapp]);
     if (rows.length > 0) {
         await connection.query("UPDATE clientes SET name = ? WHERE id = ?", [name, rows[0].id]);
+        return rows[0].id;
     } else {
         const newClientId = `client-${Date.now()}`;
         await connection.query("INSERT INTO clientes (id, name, whatsapp) VALUES (?, ?, ?)", [newClientId, name.trim(), whatsapp.trim()]);
+        return newClientId;
     }
 }
 
@@ -40,9 +41,11 @@ async function updateStaffSales(connection: any, staffId: string, servicePrice: 
     await connection.query(`UPDATE funcionarios SET salesValue = salesValue ${operator} ? WHERE id = ?`, [servicePrice, staffId]);
     // Recalculating percentage can be done here or via a DB trigger for better performance
     const [staffRows] = await connection.query<RowDataPacket[]>("SELECT salesValue, salesTarget FROM funcionarios WHERE id = ?", [staffId]);
-    const staff = staffRows[0];
-    const newSalesGoal = staff.salesTarget > 0 ? Math.round((staff.salesValue / staff.salesTarget) * 100) : 0;
-    await connection.query("UPDATE funcionarios SET salesGoalPercentage = ? WHERE id = ?", [newSalesGoal, staffId]);
+    if (staffRows.length > 0) {
+        const staff = staffRows[0];
+        const newSalesGoal = staff.salesTarget > 0 ? Math.round((staff.salesValue / staff.salesTarget) * 100) : 0;
+        await connection.query("UPDATE funcionarios SET salesGoalPercentage = ? WHERE id = ?", [newSalesGoal, staffId]);
+    }
 }
 
 // Helper: Manage Transaction
@@ -66,12 +69,13 @@ export async function POST(request: Request) {
         const validation = appointmentSchema.safeParse(body);
         if (!validation.success) return NextResponse.json({ success: false, error: validation.error.flatten() }, { status: 400 });
         
-        const { clientName, clientWhatsapp, appointmentDate, appointmentTime, selectedServiceId, selectedStaffId, status } = validation.data;
+        const { clientName, clientWhatsapp, appointmentDate, appointmentTime, selectedServiceId, selectedStaffId } = validation.data;
         
         await connection.beginTransaction();
-        await upsertClient(connection, clientName, clientWhatsapp);
+        const clientId = await upsertClient(connection, clientName, clientWhatsapp);
 
-        if (status === 'pending') {
+        // If no staff is selected, it becomes a pending appointment.
+        if (!selectedStaffId) {
             const newId = `p${Date.now()}`;
             const newPending: PendingAppointment = { id: newId, date: appointmentDate, time: appointmentTime, client: clientName, clientWhatsapp, serviceId: selectedServiceId };
             await connection.query("INSERT INTO agendamentos_pendentes (id, date, time, client, serviceId) VALUES (?, ?, ?, ?, ?)", 
@@ -81,11 +85,6 @@ export async function POST(request: Request) {
         }
 
         // --- Handling Confirmed Appointments ---
-        if (!selectedStaffId) {
-            await connection.rollback();
-            return NextResponse.json({ success: false, error: "Staff ID é obrigatório para agendamentos confirmados." }, { status: 400 });
-        }
-
         const [serviceRows] = await connection.query<RowDataPacket[]>("SELECT * FROM servicos WHERE id = ?", [selectedServiceId]);
         if (serviceRows.length === 0) throw new Error("Serviço não encontrado");
         const service = serviceRows[0] as Service;
@@ -105,6 +104,7 @@ export async function POST(request: Request) {
     } catch (e) {
         await connection.rollback();
         const error = e as Error;
+        console.error("Error creating appointment:", error);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     } finally {
         connection.release();
@@ -126,19 +126,24 @@ export async function PUT(request: Request) {
 
         // Create confirmed appointment
         const newConfirmedId = `c${Date.now()}`;
+        
+        const [serviceRows] = await connection.query<RowDataPacket[]>("SELECT * FROM servicos WHERE id = ?", [pendingAppointment.serviceId]);
+        if (serviceRows.length === 0) throw new Error("Serviço não encontrado");
+        const service = serviceRows[0] as Service;
+        
+        const clientName = pendingAppointment.client;
+        const [clientRows] = await connection.query<RowDataPacket[]>("SELECT whatsapp FROM clientes WHERE name = ?", [clientName]);
+        const clientWhatsapp = clientRows.length > 0 ? clientRows[0].whatsapp : '';
+
         const newConfirmed: Appointment = {
             id: newConfirmedId,
             date: pendingAppointment.date,
             time: pendingAppointment.time,
-            client: pendingAppointment.client,
-            clientWhatsapp: pendingAppointment.clientWhatsapp,
+            client: clientName,
+            clientWhatsapp: clientWhatsapp,
             serviceId: pendingAppointment.serviceId,
             staffId: selectedStaffId
         };
-        
-        const [serviceRows] = await connection.query<RowDataPacket[]>("SELECT * FROM servicos WHERE id = ?", [newConfirmed.serviceId]);
-        if (serviceRows.length === 0) throw new Error("Serviço não encontrado");
-        const service = serviceRows[0] as Service;
 
         await connection.query("INSERT INTO agendamentos (id, date, time, client, serviceId, staffId) VALUES (?, ?, ?, ?, ?, ?)",
             [newConfirmedId, newConfirmed.date, newConfirmed.time, newConfirmed.client, newConfirmed.serviceId, selectedStaffId]);
