@@ -11,10 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus } from 'lucide-react';
-import { Funcionario, Service } from '@/lib/data';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useData } from '@/contexts/data-context';
 import { useToast } from '@/hooks/use-toast';
 import { dayLabels } from '@/lib/constants';
@@ -46,16 +43,120 @@ export default function Home() {
       return services.find(s => s.id === selectedServiceId)
     }, [services, selectedServiceId]);
 
-  const filteredStaff = useMemo(() => {
-    if (!selectedService) {
-      return [];
+  const isTimeBlocked = (staffId: string, date: string, time: string, serviceDuration: number): boolean => {
+    if (!time) return false;
+    
+    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
+    const newAppointmentEnd = newAppointmentStart + serviceDuration * 60 * 1000;
+
+    const hasConflictAppointment = confirmedAppointments.some(existing => {
+        if (existing.staffId !== staffId || existing.date !== date) return false;
+        const existingService = services.find(s => s.id === existing.serviceId);
+        if (!existingService) return false;
+        const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
+        const existingEnd = existingStart + existingService.duration * 60 * 1000;
+        return newAppointmentStart < existingEnd && newAppointmentEnd > existingStart;
+    });
+    if (hasConflictAppointment) return true;
+
+    const hasConflictBlock = blocks.some(block => {
+        if (block.staffId !== staffId || block.date !== date) return false;
+        const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
+        const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
+        return newAppointmentStart < blockEnd && newAppointmentEnd > blockStart;
+    });
+    if (hasConflictBlock) return true;
+    
+    const schedule = workSchedules.find(ws => ws.staffId === staffId);
+    if (schedule) {
+        const dayIndex = getDay(new Date(`${date}T00:00:00`));
+        const dayOfWeek = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'][dayIndex];
+        const workHours = schedule.horarios[dayOfWeek as keyof typeof schedule.horarios];
+
+        if (!workHours || !workHours.start || !workHours.end) {
+            return true; // Does not work on this day
+        }
+
+        const workStart = new Date(`${date}T${workHours.start}`).getTime();
+        const workEnd = new Date(`${date}T${workHours.end}`).getTime();
+
+        if (newAppointmentStart < workStart || newAppointmentEnd > workEnd) {
+            return true; // Outside of working hours
+        }
+    } else {
+        return true; // No schedule found, assume unavailable
     }
+
+    return false;
+  };
+  
+  const getConflictReason = (staffId: string, date: string, time: string, serviceDuration: number): string | false => {
+    if (!time) return false;
+
+    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
+    const newAppointmentEnd = newAppointmentStart + serviceDuration * 60 * 1000;
+
+    const conflictAppointment = confirmedAppointments.find(existing => {
+        if (existing.staffId !== staffId || existing.date !== date) return false;
+        const existingService = services.find(s => s.id === existing.serviceId);
+        if (!existingService) return false;
+        const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
+        const existingEnd = existingStart + existingService.duration * 60 * 1000;
+        return newAppointmentStart < existingEnd && newAppointmentEnd > existingStart;
+    });
+    if (conflictAppointment) return 'Este profissional já possui um agendamento conflitante neste horário.';
+
+    const conflictBlock = blocks.find(block => {
+        if (block.staffId !== staffId || block.date !== date) return false;
+        const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
+        const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
+        return newAppointmentStart < blockEnd && newAppointmentEnd > blockStart;
+    });
+    if (conflictBlock) return 'O profissional tem um bloqueio de tempo neste horário.';
+    
+    const schedule = workSchedules.find(ws => ws.staffId === staffId);
+    if (schedule) {
+        const dayIndex = getDay(new Date(`${date}T00:00:00`));
+        const dayOfWeek = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'][dayIndex];
+        const workHours = schedule.horarios[dayOfWeek as keyof typeof schedule.horarios];
+
+        if (!workHours || !workHours.start || !workHours.end) {
+            return `O profissional não trabalha neste dia (${dayLabels[dayOfWeek]}).`;
+        }
+
+        const workStart = new Date(`${date}T${workHours.start}`).getTime();
+        const workEnd = new Date(`${date}T${workHours.end}`).getTime();
+
+        if (newAppointmentStart < workStart || newAppointmentEnd > workEnd) {
+            return `O horário do agendamento está fora do expediente do profissional (${workHours.start} - ${workHours.end}).`;
+        }
+    } else {
+         return 'O profissional não possui uma carga horária definida.';
+    }
+
+    return false;
+  };
+
+  const qualifiedStaff = useMemo(() => {
+    if (!selectedService) return [];
     return funcionarios.filter(s => s.roleId === selectedService.roleId);
   }, [funcionarios, selectedService]);
 
+
+  const availableStaff = useMemo(() => {
+    if (!selectedService || !appointmentDate || !appointmentTime) {
+      return qualifiedStaff;
+    }
+    return qualifiedStaff.filter(staff => 
+      !isTimeBlocked(staff.id, appointmentDate, appointmentTime, selectedService.duration)
+    );
+  }, [qualifiedStaff, appointmentDate, appointmentTime, selectedService, isTimeBlocked]);
+
+
   const staffOptions = useMemo(() => {
-    return filteredStaff.map(s => ({ value: s.id, label: s.name }));
-  }, [filteredStaff]);
+    return availableStaff.map(s => ({ value: s.id, label: s.name }));
+  }, [availableStaff]);
+
 
   const serviceOptions = useMemo(() => {
     return services.map(s => ({ value: s.id, label: `${s.name} - R$${s.price}` }));
@@ -70,97 +171,24 @@ export default function Home() {
     setAppointmentTime('');
     setConflictError('');
   };
-
-  const isTimeBlocked = (staffId: string, date: string, time: string, serviceDuration: number): string | false => {
-    const newAppointmentStart = new Date(`${date}T${time}`).getTime();
-    const newAppointmentEnd = newAppointmentStart + serviceDuration * 60 * 1000;
-
-    const conflictAppointment = confirmedAppointments.some(existing => {
-        if (existing.staffId !== staffId || existing.date !== date) return false;
-        const existingService = services.find(s => s.id === existing.serviceId);
-        if (!existingService) return false;
-        const existingStart = new Date(`${existing.date}T${existing.time}`).getTime();
-        const existingEnd = existingStart + existingService.duration * 60 * 1000;
-        return newAppointmentStart < existingEnd && newAppointmentEnd > existingStart;
-    });
-    if (conflictAppointment) return 'Este profissional já possui um agendamento conflitante neste horário.';
-
-    const conflictBlock = blocks.some(block => {
-        if (block.staffId !== staffId || block.date !== date) return false;
-        const blockStart = new Date(`${block.date}T${block.startTime}`).getTime();
-        const blockEnd = new Date(`${block.date}T${block.endTime}`).getTime();
-        return newAppointmentStart < blockEnd && newAppointmentEnd > blockStart;
-    });
-    if (conflictBlock) return 'O profissional tem um bloqueio de tempo neste horário.';
-    
-    const schedule = workSchedules.find(ws => ws.staffId === staffId);
-    if (schedule) {
-        const dayIndex = getDay(new Date(date));
-        const dayOfWeek = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'][dayIndex];
-        const workHours = schedule.horarios[dayOfWeek as keyof typeof schedule.horarios];
-
-        if (!workHours || !workHours.start || !workHours.end) {
-            return `O profissional não trabalha neste dia (${dayLabels[dayOfWeek]}).`;
-        }
-
-        const workStart = new Date(`${date}T${workHours.start}`).getTime();
-        const workEnd = new Date(`${date}T${workHours.end}`).getTime();
-
-        if (newAppointmentStart < workStart || newAppointmentEnd > workEnd) {
-            return `O horário do agendamento está fora do expediente do profissional (${workHours.start} - ${workHours.end}).`;
-        }
-    }
-
-    return false;
-  };
   
   const handleCreateAppointment = async () => {
     if (!clientName || !clientWhatsapp || !appointmentTime || !selectedServiceId || !appointmentDate) {
-      alert('Por favor, preencha todos os campos obrigatórios.');
+      setConflictError('Por favor, preencha todos os campos obrigatórios: Cliente, WhatsApp, Data, Horário e Serviço.');
       return;
     }
     setConflictError('');
 
     if (!selectedService) {
-      alert('Serviço não encontrado.');
+      setConflictError('Serviço não encontrado. Por favor, selecione um serviço válido.');
       return;
     }
 
-    // If manual selection is off, use the auto-assign endpoint
-    if (!appSettings?.manualSelection) {
-         try {
-            const response = await fetch('/api/appointments/create-auto', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    clientName,
-                    clientWhatsapp,
-                    date: appointmentDate,
-                    time: appointmentTime,
-                    serviceName: selectedService.name
-                })
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                 throw new Error(result.error || "Falha na atribuição automática.");
-            }
-            toast({
-                title: "Sucesso!",
-                description: result.message || `Agendamento criado com status: ${result.status}`,
-            });
-            resetForm();
-            setIsDialogOpen(false);
-        } catch (error) {
-            setConflictError(error instanceof Error ? error.message : "Erro desconhecido");
-        }
-        return;
-    }
-    
-    // Manual flow (pending or confirmed with staff)
+    // If a staff member is selected, double-check for conflicts before submitting
     if (selectedStaffId) {
-        const blockReason = isTimeBlocked(selectedStaffId, appointmentDate, appointmentTime, selectedService.duration);
-        if (blockReason) {
-            setConflictError(blockReason);
+        const conflictReason = getConflictReason(selectedStaffId, appointmentDate, appointmentTime, selectedService.duration);
+        if (conflictReason) {
+            setConflictError(conflictReason);
             return;
         }
     }
@@ -173,7 +201,6 @@ export default function Home() {
             appointmentTime,
             selectedServiceId,
             selectedStaffId: selectedStaffId || undefined,
-            status: selectedStaffId ? 'confirmed' : 'pending'
         };
         
         const response = await fetch('/api/appointments', {
@@ -187,19 +214,20 @@ export default function Home() {
             throw new Error(error || 'Falha ao criar agendamento');
         }
 
-        toast({ title: "Sucesso!", description: "Agendamento criado." });
+        toast({ title: "Sucesso!", description: `Agendamento para ${clientName} criado.` });
         resetForm();
         setIsDialogOpen(false);
     } catch(error) {
-        setConflictError(error instanceof Error ? error.message : "Erro desconhecido");
+        setConflictError(error instanceof Error ? error.message : "Erro desconhecido ao salvar. Tente novamente.");
     }
   };
 
   useEffect(() => {
-    if (selectedService && filteredStaff && !filteredStaff.find(s => s.id === selectedStaffId)) {
+    // If the selected staff member is no longer in the available list, reset it.
+    if (selectedStaffId && !availableStaff.find(s => s.id === selectedStaffId)) {
       setSelectedStaffId('');
     }
-  }, [selectedService, filteredStaff, selectedStaffId]);
+  }, [availableStaff, selectedStaffId]);
 
   useEffect(() => {
     if(selectedDate) {
@@ -222,76 +250,53 @@ export default function Home() {
                   Novo Agendamento
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Novo Agendamento</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="client-name" className="text-right">
-                      Cliente
-                    </Label>
-                    <Input id="client-name" value={clientName} onChange={e => setClientName(e.target.value)} className="col-span-3" placeholder="Nome do cliente" />
+                  <div className="space-y-2">
+                    <Label htmlFor="client-name">Cliente</Label>
+                    <Input id="client-name" value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Nome do cliente" />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="client-whatsapp" className="text-right">
-                      WhatsApp
-                    </Label>
-                    <Input id="client-whatsapp" value={clientWhatsapp} onChange={e => setClientWhatsapp(e.target.value)} className="col-span-3" placeholder="WhatsApp do cliente" />
+                  <div className="space-y-2">
+                    <Label htmlFor="client-whatsapp">WhatsApp</Label>
+                    <Input id="client-whatsapp" value={clientWhatsapp} onChange={e => setClientWhatsapp(e.target.value)} placeholder="WhatsApp do cliente" />
                   </div>
-                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="appointment-date" className="text-right">
-                      Data
-                    </Label>
-                    <Input id="appointment-date" type="date" value={appointmentDate} onChange={e => setAppointmentDate(e.target.value)} className="col-span-3" />
-                  </div>
-                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="appointment-time" className="text-right">
-                      Horário
-                    </Label>
-                    <Input id="appointment-time" type="time" value={appointmentTime} onChange={e => setAppointmentTime(e.target.value)} className="col-span-3" />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="service" className="text-right">
-                          Serviço
-                        </Label>
-                        <div className='col-span-3'>
-                          <Combobox
-                              options={serviceOptions}
-                              value={selectedServiceId}
-                              onChange={setSelectedServiceId}
-                              placeholder="Selecione um serviço"
-                              searchPlaceholder="Buscar serviço..."
-                              emptyText="Nenhum serviço encontrado."
-                            />
-                        </div>
-                      </div>
-                  
-                  {appSettings?.manualSelection ? (
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="staff" className="text-right">
-                        Profissional
-                        </Label>
-                        <div className='col-span-3'>
-                        <Combobox
-                            options={staffOptions}
-                            value={selectedStaffId}
-                            onChange={setSelectedStaffId}
-                            placeholder="Deixar pendente"
-                            searchPlaceholder="Buscar profissional..."
-                            emptyText="Nenhum profissional qualificado."
-                            />
-                        </div>
+                   <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="appointment-date">Data</Label>
+                      <Input id="appointment-date" type="date" value={appointmentDate} onChange={e => setAppointmentDate(e.target.value)} />
                     </div>
-                  ) : (
-                     <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="staff" className="text-right">
-                            Profissional
-                          </Label>
-                          <div className='col-span-3'>
-                            <Input id="staff" disabled value="Atribuído automaticamente" />
-                          </div>
-                        </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="appointment-time">Horário</Label>
+                      <Input id="appointment-time" type="time" value={appointmentTime} onChange={e => setAppointmentTime(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="service">Serviço</Label>
+                    <Combobox
+                        options={serviceOptions}
+                        value={selectedServiceId}
+                        onChange={setSelectedServiceId}
+                        placeholder="Selecione um serviço"
+                        searchPlaceholder="Buscar serviço..."
+                        emptyText="Nenhum serviço encontrado."
+                      />
+                  </div>
+                  
+                  {appSettings?.manualSelection && (
+                    <div className="space-y-2">
+                      <Label htmlFor="staff">Profissional</Label>
+                      <Combobox
+                          options={staffOptions}
+                          value={selectedStaffId}
+                          onChange={setSelectedStaffId}
+                          placeholder="Deixar pendente"
+                          searchPlaceholder="Buscar profissional..."
+                          emptyText="Nenhum profissional disponível."
+                          />
+                    </div>
                   )}
 
                    {conflictError && (
@@ -309,8 +314,10 @@ export default function Home() {
           <CalendarView selectedDate={selectedDate} onDateChange={setSelectedDate} />
           {dataLoading ? (
             <div className="mt-8 space-y-4">
-              <Skeleton className="h-8 w-1/3" />
-              <Skeleton className="h-40 w-full" />
+              <h3 className="text-2xl font-bold mb-4 font-headline">Agendamentos Confirmados</h3>
+              <div className="border rounded-lg p-4">
+                <div className="h-40 w-full animate-pulse bg-muted rounded-md" />
+              </div>
             </div>
           ) : (
             <ConfirmedAppointments 
@@ -321,14 +328,16 @@ export default function Home() {
         <aside className="lg:w-[35%] xl:w-[30%]">
           {dataLoading ? (
              <div className="space-y-4">
-              <Skeleton className="h-8 w-1/2" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
+                <h3 className="text-2xl font-bold mb-4 font-headline">Agendamentos Pendentes</h3>
+                <div className="border rounded-lg p-4 space-y-4">
+                    <div className="h-16 w-full animate-pulse bg-muted rounded-md" />
+                    <div className="h-16 w-full animate-pulse bg-muted rounded-md" />
+                    <div className="h-16 w-full animate-pulse bg-muted rounded-md" />
+                </div>
             </div>
           ) : (
              <PendingAppointments
-                isTimeBlocked={isTimeBlocked}
+                isTimeBlocked={getConflictReason}
             />
           )}
         </aside>

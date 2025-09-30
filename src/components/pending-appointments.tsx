@@ -50,12 +50,12 @@ function PendingAppointmentCard({
 
   const handleConfirm = () => {
     if (!selectedStaffId) {
-      alert('Selecione o profissional para confirmar.');
+      setConflictError('Selecione o profissional para confirmar.');
       return;
     }
     
     if (!service) {
-        alert('Serviço não encontrado.');
+        setConflictError('Serviço não encontrado.');
         return;
     }
     
@@ -220,18 +220,7 @@ export function PendingAppointments({
 
 
   if (!showPending) {
-    return (
-      <Card className="bg-card border-border h-fit">
-        <CardHeader>
-          <CardTitle className="font-headline text-2xl font-bold">Agendamentos Pendentes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-center py-8">
-            Nenhum agendamento pendente.
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   return (
