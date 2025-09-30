@@ -147,9 +147,11 @@ export default function Home() {
     if (!selectedService) {
         return [];
     }
+    // If date and time are not set, return all qualified staff
     if (!appointmentDate || !appointmentTime) {
       return qualifiedStaff;
     }
+    // Otherwise, filter by availability
     return qualifiedStaff.filter(staff => 
       !isTimeBlocked(staff.id, appointmentDate, appointmentTime, selectedService.duration)
     );
@@ -157,8 +159,12 @@ export default function Home() {
 
 
   const staffOptions = useMemo(() => {
-    return availableStaff.map(s => ({ value: s.id, label: s.name }));
-  }, [availableStaff]);
+    const options = availableStaff.map(s => ({ value: s.id, label: s.name }));
+    if (appSettings?.manualSelection) {
+      return [{ value: '', label: 'Deixar pendente' }, ...options];
+    }
+    return options;
+  }, [availableStaff, appSettings?.manualSelection]);
 
 
   const serviceOptions = useMemo(() => {
@@ -288,14 +294,14 @@ export default function Home() {
                       />
                   </div>
                   
-                  {appSettings?.manualSelection && (
+                  {selectedServiceId && (
                     <div className="space-y-2">
                       <Label htmlFor="staff">Profissional</Label>
                       <Combobox
                           options={staffOptions}
                           value={selectedStaffId}
                           onChange={setSelectedStaffId}
-                          placeholder="Deixar pendente"
+                          placeholder="Selecione um profissional"
                           searchPlaceholder="Buscar profissional..."
                           emptyText="Nenhum profissional disponível."
                           />
