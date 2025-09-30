@@ -70,7 +70,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (key === 'agendamentos_pendentes') key = 'pendingAppointments';
         if (key === 'confirmedAppointments') key = 'confirmedAppointments';
         
-        acc[key as keyof typeof initialState] = responses[index].data || responses[index] || (initialState[key as keyof typeof initialState] === null ? null : []);
+        acc[key as keyof typeof initialState] = responses[index] || (initialState[key as keyof typeof initialState] === null ? null : []);
         return acc;
       }, {} as any);
 
