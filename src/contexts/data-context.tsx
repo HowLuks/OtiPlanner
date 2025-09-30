@@ -42,7 +42,7 @@ const DataContext = createContext<DataContextType>({
 
 const API_ENDPOINTS = [
     'services', 'roles', 'funcionarios', 'confirmedAppointments', 
-    'pendingAppointments', 'transactions', 'blocks', 'workSchedules', 
+    'agendamentos_pendentes', 'transactions', 'blocks', 'workSchedules', 
     'clients', 'appSettings', 'staffQueue'
 ];
 
@@ -66,9 +66,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       );
       
       const fetchedData = API_ENDPOINTS.reduce((acc, endpoint, index) => {
-        const key = endpoint as keyof typeof initialState;
-        // Handle single object responses vs array responses
-        acc[key] = responses[index].data || responses[index] || (initialState[key] === null ? null : []);
+        let key = endpoint;
+        if (key === 'agendamentos_pendentes') key = 'pendingAppointments';
+        if (key === 'confirmedAppointments') key = 'confirmedAppointments';
+        
+        acc[key as keyof typeof initialState] = responses[index].data || responses[index] || (initialState[key as keyof typeof initialState] === null ? null : []);
         return acc;
       }, {} as any);
 
